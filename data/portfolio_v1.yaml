@@ -1,0 +1,138 @@
+# Fictional portfolio v1: "Nordia Retail", a retail division sold by "Atlas Group".
+# Convention: relationship source DEPENDS ON target.
+# Edge cases are explained in data/README.md.
+
+planning:
+  company: Nordia Retail
+  carve_out_description: Retail division of Atlas Group sold to a private equity buyer
+  day1: 2027-01-04
+  cutover_start: 2027-03-01
+  target_tsa_exit: 2027-12-31
+  max_assets_per_wave: 8
+  weeks_per_wave_gap: 2
+
+assets:
+  # ---------- Infrastructure ----------
+  - {id: INF-01, name: Atlas Paris Data Centre, type: infrastructure, owner: shared, criticality: 5, users: 0, hosting: parent DC, effort_weeks: 8, tsa_id: TSA-04}
+  - {id: INF-02, name: Corporate WAN, type: infrastructure, owner: shared, criticality: 5, users: 0, hosting: parent network, effort_weeks: 6, tsa_id: TSA-04}
+  - {id: INF-03, name: Active Directory / SSO, type: infrastructure, owner: shared, criticality: 5, users: 1200, function: identity, hosting: parent DC, effort_weeks: 8, tsa_id: TSA-03, notes: Shared identity for all staff and most apps}
+  - {id: INF-04, name: Nordia Azure Landing Zone, type: infrastructure, owner: carved_out, criticality: 4, users: 0, hosting: Azure, effort_weeks: 6}
+  - {id: INF-05, name: Legacy Windows Servers, type: infrastructure, owner: parent, criticality: 1, users: 0, hosting: parent DC, effort_weeks: 1}
+
+  # ---------- Data stores ----------
+  - {id: DB-01, name: ERP Database, type: datastore, owner: shared, criticality: 5, users: 0, sensitive: true, hosting: parent DC, effort_weeks: 10, licence_id: LIC-02, tsa_id: TSA-01, notes: Holds Atlas and Nordia financial data in one schema}
+  - {id: DB-02, name: Customer Database, type: datastore, owner: carved_out, criticality: 5, users: 0, sensitive: true, hosting: parent DC, effort_weeks: 5, notes: Personal data under GDPR}
+  - {id: DB-03, name: Product Catalogue DB, type: datastore, owner: carved_out, criticality: 4, users: 0, hosting: Azure, effort_weeks: 3}
+  - {id: DB-04, name: Orders DB, type: datastore, owner: carved_out, criticality: 5, users: 0, sensitive: true, hosting: Azure, effort_weeks: 4}
+  - {id: DB-05, name: Data Warehouse, type: datastore, owner: shared, criticality: 3, users: 0, hosting: parent DC, effort_weeks: 8, tsa_id: TSA-04}
+  - {id: DB-06, name: Legacy Reporting DB, type: datastore, owner: carved_out, criticality: 1, users: 0, hosting: parent DC, effort_weeks: 1}
+
+  # ---------- Applications ----------
+  - {id: APP-01, name: Shared ERP, type: application, owner: shared, criticality: 5, users: 450, function: erp, hosting: parent DC, effort_weeks: 30, licence_id: LIC-01, tsa_id: TSA-01, notes: Single instance serving Atlas and Nordia}
+  - {id: APP-02, name: E-commerce Web Shop, type: application, owner: carved_out, criticality: 5, users: 90000, function: ecommerce, hosting: Azure, effort_weeks: 6}
+  - {id: APP-03, name: POS System, type: application, owner: carved_out, criticality: 5, users: 600, function: pos, hosting: store servers, effort_weeks: 8}
+  - {id: APP-04, name: Salesforce-like CRM, type: application, owner: carved_out, criticality: 4, users: 220, function: crm, hosting: SaaS, effort_weeks: 4, licence_id: LIC-03}
+  - {id: APP-05, name: Legacy Atlas CRM, type: application, owner: parent, criticality: 2, users: 15, function: crm, hosting: parent DC, effort_weeks: 3, notes: Duplicate of APP-04; a few sales reps still use it}
+  - {id: APP-06, name: Inventory Management, type: application, owner: carved_out, criticality: 5, users: 180, function: inventory, hosting: Azure, effort_weeks: 6, notes: Mutual dependency with WMS}
+  - {id: APP-07, name: Warehouse Management, type: application, owner: carved_out, criticality: 5, users: 140, function: warehouse, hosting: Azure, effort_weeks: 6, notes: Mutual dependency with Inventory}
+  - {id: APP-08, name: Payment Gateway Integration, type: application, owner: carved_out, criticality: 5, users: 0, function: payments, hosting: Azure, effort_weeks: 4, licence_id: LIC-04, notes: Posts settlements to ERP}
+  - {id: APP-09, name: HR and Payroll, type: application, owner: shared, criticality: 4, users: 1200, function: hr, hosting: parent DC, effort_weeks: 12, licence_id: LIC-05, tsa_id: TSA-02}
+  - {id: APP-10, name: Email and Collaboration, type: application, owner: shared, criticality: 4, users: 1200, function: collaboration, hosting: SaaS, effort_weeks: 6, tsa_id: TSA-03}
+  - {id: APP-11, name: BI Dashboards, type: application, owner: carved_out, criticality: 3, users: 60, function: bi, hosting: SaaS, effort_weeks: 3, licence_id: LIC-06}
+  - {id: APP-12, name: Legacy Loyalty App, type: application, owner: carved_out, criticality: 1, users: 0, function: loyalty, hosting: legacy servers, effort_weeks: 1, notes: No logins for 18 months}
+  - {id: APP-13, name: API Gateway, type: application, owner: carved_out, criticality: 4, users: 0, function: integration, hosting: Azure, effort_weeks: 3}
+  - {id: APP-14, name: Finance Consolidation, type: application, owner: shared, criticality: 4, users: 35, function: finance_reporting, hosting: parent DC, effort_weeks: 10, tsa_id: TSA-01}
+  - {id: APP-15, name: Supplier Portal, type: application, owner: carved_out, criticality: 3, users: 800, function: procurement, hosting: Azure, effort_weeks: 3}
+  - {id: APP-16, name: Customer Support Ticketing, type: application, owner: carved_out, criticality: 3, users: 90, function: support, hosting: SaaS, effort_weeks: 2, licence_id: LIC-07}
+  - {id: APP-17, name: Pricing Engine, type: application, owner: carved_out, criticality: 4, users: 25, function: pricing, hosting: Azure, effort_weeks: 4}
+  - {id: APP-18, name: Monitoring and Observability, type: application, owner: carved_out, criticality: 3, users: 30, function: monitoring, hosting: Azure, effort_weeks: 2}
+  - {id: APP-19, name: Data Integration (ETL), type: application, owner: shared, criticality: 3, users: 0, function: etl, hosting: parent DC, effort_weeks: 6, tsa_id: TSA-04}
+
+relationships:
+  # ERP stack
+  - {source: APP-01, target: DB-01, type: READS_FROM}
+  - {source: APP-01, target: INF-01, type: HOSTED_ON}
+  - {source: APP-01, target: INF-03, type: AUTHENTICATES_VIA}
+  - {source: DB-01, target: INF-01, type: HOSTED_ON}
+  # Shared infrastructure
+  - {source: INF-03, target: INF-01, type: HOSTED_ON}
+  - {source: INF-04, target: INF-02, type: CONNECTS_VIA, description: Azure connected to the parent WAN}
+  - {source: DB-05, target: INF-01, type: HOSTED_ON}
+  - {source: DB-06, target: INF-05, type: HOSTED_ON}
+  - {source: DB-02, target: INF-01, type: HOSTED_ON}
+  # E-commerce
+  - {source: APP-02, target: APP-13, type: CALLS}
+  - {source: APP-02, target: DB-03, type: READS_FROM}
+  - {source: APP-02, target: DB-04, type: WRITES_TO}
+  - {source: APP-02, target: DB-02, type: READS_FROM}
+  - {source: APP-02, target: APP-08, type: CALLS}
+  - {source: APP-02, target: APP-17, type: CALLS}
+  - {source: APP-02, target: INF-04, type: HOSTED_ON}
+  # POS
+  - {source: APP-03, target: APP-01, type: CALLS, description: Posts sales and stock to ERP}
+  - {source: APP-03, target: DB-03, type: READS_FROM}
+  - {source: APP-03, target: APP-08, type: CALLS}
+  - {source: APP-03, target: INF-02, type: CONNECTS_VIA}
+  # CRM (two of them)
+  - {source: APP-04, target: DB-02, type: READS_FROM}
+  - {source: APP-04, target: INF-03, type: AUTHENTICATES_VIA}
+  - {source: APP-05, target: DB-02, type: READS_FROM}
+  - {source: APP-05, target: INF-01, type: HOSTED_ON}
+  # Inventory <-> WMS (CYCLE)
+  - {source: APP-06, target: APP-07, type: CALLS}
+  - {source: APP-07, target: APP-06, type: CALLS}
+  - {source: APP-06, target: APP-01, type: CALLS}
+  - {source: APP-06, target: DB-03, type: READS_FROM}
+  - {source: APP-06, target: INF-04, type: HOSTED_ON}
+  - {source: APP-07, target: DB-04, type: READS_FROM}
+  - {source: APP-07, target: INF-04, type: HOSTED_ON}
+  # Payments
+  - {source: APP-08, target: APP-01, type: CALLS}
+  - {source: APP-08, target: INF-04, type: HOSTED_ON}
+  # HR and collaboration
+  - {source: APP-09, target: APP-14, type: CALLS, description: Payroll journals to finance}
+  - {source: APP-09, target: INF-01, type: HOSTED_ON}
+  - {source: APP-09, target: INF-03, type: AUTHENTICATES_VIA}
+  - {source: APP-10, target: INF-03, type: AUTHENTICATES_VIA}
+  # Data and BI
+  - {source: APP-19, target: DB-01, type: READS_FROM}
+  - {source: APP-19, target: DB-05, type: WRITES_TO}
+  - {source: APP-19, target: INF-01, type: HOSTED_ON}
+  - {source: APP-11, target: DB-05, type: READS_FROM}
+  - {source: APP-11, target: INF-03, type: AUTHENTICATES_VIA}
+  - {source: APP-14, target: APP-01, type: CALLS}
+  - {source: APP-14, target: DB-05, type: READS_FROM}
+  - {source: APP-14, target: INF-01, type: HOSTED_ON}
+  # Legacy loyalty
+  - {source: APP-12, target: DB-02, type: READS_FROM}
+  - {source: APP-12, target: DB-06, type: WRITES_TO}
+  - {source: APP-12, target: INF-05, type: HOSTED_ON}
+  # Platform services
+  - {source: APP-13, target: INF-04, type: HOSTED_ON}
+  - {source: APP-13, target: INF-03, type: AUTHENTICATES_VIA}
+  - {source: APP-15, target: APP-01, type: CALLS}
+  - {source: APP-15, target: INF-04, type: HOSTED_ON}
+  - {source: APP-15, target: INF-03, type: AUTHENTICATES_VIA}
+  - {source: APP-16, target: APP-04, type: CALLS}
+  - {source: APP-16, target: INF-04, type: HOSTED_ON}
+  - {source: APP-16, target: INF-03, type: AUTHENTICATES_VIA}
+  - {source: APP-17, target: DB-03, type: READS_FROM}
+  - {source: APP-17, target: APP-01, type: CALLS}
+  - {source: APP-17, target: INF-04, type: HOSTED_ON}
+  - {source: APP-18, target: INF-04, type: HOSTED_ON}
+  - {source: APP-18, target: INF-02, type: CONNECTS_VIA}
+
+licences:
+  - {id: LIC-01, vendor: ERPVendor, product: ERP Enterprise, end_date: 2028-12-31, transferable: false, annual_cost: 400000, notice_period_days: 180}
+  - {id: LIC-02, vendor: DBVendor, product: Enterprise Database, end_date: 2028-12-31, transferable: false, annual_cost: 150000, notice_period_days: 90}
+  - {id: LIC-03, vendor: CRMVendor, product: CRM Cloud, end_date: 2029-06-30, transferable: true, annual_cost: 90000, notice_period_days: 60}
+  - {id: LIC-04, vendor: PayVendor, product: Payment Gateway, end_date: 2027-04-30, transferable: true, annual_cost: 40000, notice_period_days: 60}
+  - {id: LIC-05, vendor: HRVendor, product: HR Suite, end_date: 2027-12-31, transferable: false, annual_cost: 120000, notice_period_days: 120}
+  - {id: LIC-06, vendor: BIVendor, product: BI Platform, end_date: 2028-03-31, transferable: true, annual_cost: 30000, notice_period_days: 30}
+  - {id: LIC-07, vendor: SupportVendor, product: Ticketing Cloud, end_date: 2028-09-30, transferable: true, annual_cost: 20000, notice_period_days: 30}
+
+tsa_services:
+  - {id: TSA-01, service: ERP hosting, support and finance reporting, start_date: 2027-01-04, end_date: 2027-09-30, monthly_cost: 85000, extendable: false}
+  - {id: TSA-02, service: HR and payroll processing, start_date: 2027-01-04, end_date: 2027-06-30, monthly_cost: 30000, extendable: true, extension_months: 3}
+  - {id: TSA-03, service: Identity, email and collaboration, start_date: 2027-01-04, end_date: 2027-12-31, monthly_cost: 25000, extendable: true, extension_months: 6}
+  - {id: TSA-04, service: Data centre, network, data warehouse and ETL, start_date: 2027-01-04, end_date: 2027-12-31, monthly_cost: 60000, extendable: true, extension_months: 3}

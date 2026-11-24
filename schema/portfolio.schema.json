@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://splitwise-it.example/schema/portfolio.schema.json",
+  "title": "Splitwise IT portfolio",
+  "description": "Portfolio input for a deterministic IT separation planner. Relationship source depends on target.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["planning", "assets", "relationships"],
+  "properties": {
+    "planning": { "$ref": "#/$defs/planning" },
+    "assets": { "type": "array", "items": { "$ref": "#/$defs/asset" } },
+    "relationships": { "type": "array", "items": { "$ref": "#/$defs/relationship" } },
+    "licences": { "type": "array", "items": { "$ref": "#/$defs/licence" }, "default": [] },
+    "tsa_services": { "type": "array", "items": { "$ref": "#/$defs/tsaService" }, "default": [] }
+  },
+  "$defs": {
+    "date": { "type": "string", "format": "date" },
+    "planning": {
+      "type": "object", "additionalProperties": false,
+      "required": ["company", "carve_out_description", "day1", "cutover_start", "target_tsa_exit"],
+      "properties": {
+        "company": { "type": "string", "minLength": 1 },
+        "carve_out_description": { "type": "string", "minLength": 1 },
+        "day1": { "$ref": "#/$defs/date" },
+        "cutover_start": { "$ref": "#/$defs/date" },
+        "target_tsa_exit": { "$ref": "#/$defs/date" },
+        "max_assets_per_wave": { "type": "integer", "minimum": 1, "default": 8 },
+        "weeks_per_wave_gap": { "type": "integer", "minimum": 0, "default": 2 }
+      }
+    },
+    "asset": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "name", "type", "owner", "criticality"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "name": { "type": "string", "minLength": 1 },
+        "type": { "enum": ["application", "datastore", "infrastructure"] },
+        "owner": { "enum": ["parent", "carved_out", "shared"] },
+        "criticality": { "type": "integer", "minimum": 1, "maximum": 5 },
+        "users": { "type": "integer", "minimum": 0, "default": 0 },
+        "function": { "type": ["string", "null"] },
+        "hosting": { "type": ["string", "null"] },
+        "sensitive": { "type": "boolean", "default": false },
+        "effort_weeks": { "type": "integer", "minimum": 0, "default": 2 },
+        "licence_id": { "type": ["string", "null"] },
+        "tsa_id": { "type": ["string", "null"] },
+        "notes": { "type": ["string", "null"] }
+      }
+    },
+    "relationship": {
+      "type": "object", "additionalProperties": false,
+      "required": ["source", "target", "type"],
+      "properties": {
+        "source": { "type": "string", "minLength": 1 },
+        "target": { "type": "string", "minLength": 1 },
+        "type": { "enum": ["CALLS", "READS_FROM", "WRITES_TO", "HOSTED_ON", "AUTHENTICATES_VIA", "CONNECTS_VIA"] },
+        "description": { "type": ["string", "null"] }
+      }
+    },
+    "licence": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "vendor", "product", "end_date", "transferable"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "vendor": { "type": "string", "minLength": 1 },
+        "product": { "type": "string", "minLength": 1 },
+        "end_date": { "$ref": "#/$defs/date" },
+        "transferable": { "type": "boolean" },
+        "annual_cost": { "type": "number", "minimum": 0, "default": 0 },
+        "notice_period_days": { "type": "integer", "minimum": 0, "default": 0 }
+      }
+    },
+    "tsaService": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "service", "start_date", "end_date", "monthly_cost"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "service": { "type": "string", "minLength": 1 },
+        "provider": { "type": "string", "default": "Parent Group" },
+        "start_date": { "$ref": "#/$defs/date" },
+        "end_date": { "$ref": "#/$defs/date" },
+        "monthly_cost": { "type": "number", "minimum": 0 },
+        "extendable": { "type": "boolean", "default": false },
+        "extension_months": { "type": "integer", "minimum": 0, "default": 0 }
+      }
+    }
+  }
+}
