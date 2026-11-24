@@ -39,3 +39,7 @@ carveout generate --ai
 The AI writes explanatory prose only. Code supplies the asset lists, decisions,
 wave dates, runbook checklists, TSA schedule, and risk register. Inputs and model
 responses are logged under `logs/`; keep secrets out of those files.
+If Groq returns a `429` rate-limit response, the client waits for its retry
+window and retries. If the run stops partway through, rerun the same command;
+previously validated narrative responses are reused when their inputs and model
+are unchanged.
