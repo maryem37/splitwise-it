@@ -1,4 +1,6 @@
-# Splitwise IT
+# splitwise-it
+
+Plan IT carve-outs with a dependency graph, separation waves and AI-generated runbooks.
 
 A deterministic dependency-graph planner for separating a fictional business unit's IT portfolio. It validates portfolio data and, in later phases, computes explainable strategies and migration waves before generating human-readable planning documents.
 
