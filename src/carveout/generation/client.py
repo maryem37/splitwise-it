@@ -7,7 +7,7 @@ import re
 from pathlib import Path
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict
 
 from .guardrails import validate_document_references
 
@@ -15,8 +15,8 @@ from .guardrails import validate_document_references
 class NarrativeOutput(BaseModel):
     model_config = ConfigDict(extra="forbid")
     narrative: str
-    referenced_asset_ids: list[str] = Field(default_factory=list)
-    referenced_wave_numbers: list[int] = Field(default_factory=list)
+    referenced_asset_ids: list[str]
+    referenced_wave_numbers: list[int]
 
 
 def generate_narrative(
@@ -71,7 +71,14 @@ def generate_narrative(
                 },
                 {"role": "user", "content": user_text},
             ],
-            response_format={"type": "json_object"},
+            response_format={
+                "type": "json_schema",
+                "json_schema": {
+                    "name": "narrative_output",
+                    "strict": True,
+                    "schema": NarrativeOutput.model_json_schema(),
+                },
+            },
         )
         response_text = response.choices[0].message.content or ""
         (logs / f"{log_name}.attempt-{attempt + 1}.json").write_text(

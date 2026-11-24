@@ -26,7 +26,8 @@ carveout run-all
 
 To enable Groq narrative sections, install the optional provider and create a
 local `.env` file from the example, then set `GROQ_API_KEY` and `GROQ_MODEL`
-there:
+there. The example selects `openai/gpt-oss-20b`, which supports strict JSON
+schema output on Groq.
 
 ```powershell
 py -m pip install -e ".[ai]"

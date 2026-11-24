@@ -93,5 +93,6 @@ def test_groq_narrative_retries_unknown_asset_without_network(tmp_path, monkeypa
 
     assert narrative == "The cutover follows its dependencies."
     assert len(calls) == 2
-    assert calls[0]["response_format"] == {"type": "json_object"}
+    assert calls[0]["response_format"]["type"] == "json_schema"
+    assert calls[0]["response_format"]["json_schema"]["strict"] is True
     assert "unknown assets" in calls[1]["messages"][1]["content"]
