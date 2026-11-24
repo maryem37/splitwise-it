@@ -2,8 +2,8 @@
   "summary": {
     "dependency_violations": 0,
     "strategy_match_percent": 83.33,
-    "wave_exact_match_percent": 20.0,
-    "wave_order_similarity_percent": 67.86,
+    "wave_exact_match_percent": 23.33,
+    "wave_order_similarity_percent": 68.68,
     "risk_coverage_percent": 80.0,
     "hallucination_count": 0,
     "hallucination_assets": [],

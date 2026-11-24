@@ -119,6 +119,7 @@ def evaluate_results(
         f"- Dependency violations: {summary['dependency_violations']} (target: 0).\n"
         f"- Strategy match: {summary['strategy_match_percent']}%.\n"
         f"- Exact expert wave match: {summary['wave_exact_match_percent']}%.\n"
+        f"- Pairwise wave order similarity: {summary['wave_order_similarity_percent']}%.\n"
         f"- Expert risk coverage: {summary['risk_coverage_percent']}%.\n"
         f"- Unknown asset references: {summary['hallucination_count']}.\n\n"
         "Wave exact match compares wave numbers asset by asset. A low score can "
