@@ -46,10 +46,10 @@ def _planning_graph(portfolio: Portfolio, strategies: list[dict[str, Any]] | Non
         item["asset_id"] for item in strategies
         if item.get("strategy") == "retain_under_tsa"
     }
-    for service_id in retained:
+    for service_id in sorted(retained):
         if service_id not in graph:
             continue
-        consumers = list(graph.predecessors(service_id))
+        consumers = sorted(graph.predecessors(service_id))
         for consumer in consumers:
             attrs = dict(graph.get_edge_data(consumer, service_id) or {})
             graph.remove_edge(consumer, service_id)
@@ -77,7 +77,10 @@ def compute_waves(
     prerequisites_first = condensed.reverse(copy=True)
     asset_prerequisites_first = graph.reverse(copy=True)
     depths: dict[int, int] = {}
-    for component in nx.topological_sort(prerequisites_first):
+    component_key = lambda node: tuple(sorted(condensed.nodes[node]["members"]))
+    for component in nx.lexicographical_topological_sort(
+        prerequisites_first, key=component_key
+    ):
         depths[component] = 1 + max(
             (depths[parent] for parent in prerequisites_first.predecessors(component)),
             default=0,

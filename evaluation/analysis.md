@@ -3,7 +3,7 @@
 - Dependency violations: 0 (target: 0).
 - Strategy match: 83.33%.
 - Exact expert wave match: 23.33%.
-- Pairwise wave order similarity: 68.68%.
+- Pairwise wave order similarity: 70.33%.
 - Expert risk coverage: 80.0%.
 - Unknown asset references: 0.
 

@@ -8,7 +8,7 @@ This project implements a deterministic planner for a fictional IT carve-out.
 It validates a portfolio, builds an application dependency graph, assigns
 explainable strategies, groups assets into cutover waves, flags TSA and licence
 date conflicts, and produces separation documents. The algorithm decides
-strategies and order; optional Claude calls can add explanatory prose only.
+strategies and order; optional Groq calls can add explanatory prose only.
 
 The 30-asset Nordia Retail portfolio produced seven waves, one detected cycle,
 zero dependency-order violations, and zero unknown IDs in structured output
@@ -80,8 +80,8 @@ directories. Evaluation artifacts are versioned under `evaluation/`.
 | Dependency violations | 0 | Target is zero. |
 | Cycles | 1, grouped | APP-06 and APP-07 remain together. |
 | Strategy match to expert plan | 83.33% | 25 of 30 strategy labels match. |
-| Exact expert wave match | 20.00% | Same wave number for 6 of 30 assets. |
-| Pairwise wave-order similarity | 67.86% | Preserves the relative order of about two thirds of compared asset pairs. |
+| Exact expert wave match | 23.33% | Same wave number for 7 of 30 assets. |
+| Pairwise wave-order similarity | 70.33% | Preserves the relative order of about seven tenths of compared asset pairs. |
 | Expert risk coverage | 80.00% | 8 of 10 reference risk IDs are represented. |
 | Unknown structured asset references | 0 | No unknown asset IDs were found. |
 
@@ -125,7 +125,7 @@ differences, while the zero dependency violations and grouped cycle show that
 the dependency invariants held. Risk coverage is short by two reference risks;
 the risk rules should add explicit contract-transfer and TSA-extension risks.
 
-No AI provider was called for these results. The reported unknown-reference
+Groq was not called for these results. The reported unknown-reference
 count checks structured strategy, wave and risk asset IDs; prose hallucination
 rates require running the optional AI generation path with a configured model.
 

@@ -10,7 +10,8 @@ py -m pip install -e ".[dev]"
 ```
 
 The commands create reproducible outputs under `output/`; evaluation files are
-written under `evaluation/`.
+written under `evaluation/`. No frontend is needed: the CLI runs the pipeline
+and writes files you can open directly.
 
 ```powershell
 carveout validate
@@ -23,9 +24,9 @@ carveout evaluate
 carveout run-all
 ```
 
-To enable Claude narrative sections, install the optional provider and create a
-local `.env` file from the example, then set `ANTHROPIC_API_KEY` and
-`CARVEOUT_LLM_MODEL` there:
+To enable Groq narrative sections, install the optional provider and create a
+local `.env` file from the example, then set `GROQ_API_KEY` and `GROQ_MODEL`
+there:
 
 ```powershell
 py -m pip install -e ".[ai]"

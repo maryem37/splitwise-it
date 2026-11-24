@@ -82,7 +82,7 @@ YAML -> validation -> dependency graph -> ordered strategy rules
 ## Slide 7 — Evaluation and limits
 
 - Dependency violations: **0**; cycles grouped: **yes**.
-- Exact wave-number match: **20.00%**; pairwise order similarity: **67.86%**.
+- Exact wave-number match: **23.33%**; pairwise order similarity: **70.33%**.
 - Expert risk coverage: **80.00%**; unknown structured asset IDs: **0**.
 - Four-asset robustness portfolio: all assets scheduled, 0 dependency violations.
 

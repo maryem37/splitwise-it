@@ -16,7 +16,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0"]
-ai = ["anthropic>=0.75", "python-dotenv>=1.0"]
+ai = ["groq>=0.11", "python-dotenv>=1.0"]
 
 [project.scripts]
 carveout = "carveout.cli:main"

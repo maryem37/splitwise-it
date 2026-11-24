@@ -5,7 +5,7 @@
 | dependency violations | 0 |
 | strategy match percent | 83.33 |
 | wave exact match percent | 23.33 |
-| wave order similarity percent | 68.68 |
+| wave order similarity percent | 70.33 |
 | risk coverage percent | 80.0 |
 | hallucination count | 0 |
 | hallucination assets | [] |

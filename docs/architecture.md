@@ -19,6 +19,10 @@ components stay together. Assets retained under a TSA remain available while
 their consumers move, then exit later. Rules and waves run without an LLM;
 current documents use templates and calculated data.
 
+Optional Groq calls use JSON responses and validate mentioned asset and wave IDs
+before inserting explanatory text. The CLI is sufficient for the current
+workflow; a web frontend is a separate optional product decision.
+
 ## Implementation order
 
 1. Data model, loader, portfolio and independent expert ground truth.

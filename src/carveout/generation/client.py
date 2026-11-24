@@ -1,4 +1,4 @@
-"""Optional Anthropic structured-output client for narrative-only sections."""
+"""Optional Groq JSON-output client for narrative-only sections."""
 from __future__ import annotations
 
 import json
@@ -26,20 +26,23 @@ def generate_narrative(
     known_wave_numbers: set[int],
     log_name: str,
 ) -> str:
-    """Call Claude for explanatory prose; reject unknown references and retry once."""
+    """Call Groq for explanatory prose; reject unknown references and retry once."""
     try:
-        import anthropic
+        from groq import Groq
         from dotenv import load_dotenv
     except ImportError as exc:
-        raise RuntimeError("Install the optional 'ai' dependency to enable Claude generation.") from exc
+        raise RuntimeError("Install the optional 'ai' dependency to enable Groq generation.") from exc
 
     project_root = Path(__file__).resolve().parents[3]
     load_dotenv(project_root / ".env")
     prompt = Path(prompt_path).read_text(encoding="utf-8")
-    model = os.environ.get("CARVEOUT_LLM_MODEL")
+    api_key = os.environ.get("GROQ_API_KEY")
+    if not api_key:
+        raise RuntimeError("Set GROQ_API_KEY in the environment or local .env file.")
+    model = os.environ.get("GROQ_MODEL")
     if not model:
-        raise RuntimeError("Set CARVEOUT_LLM_MODEL to the Claude model ID to enable AI generation.")
-    client = anthropic.Anthropic()
+        raise RuntimeError("Set GROQ_MODEL to a model ID to enable Groq generation.")
+    client = Groq(api_key=api_key)
     logs = project_root / "logs"
     logs.mkdir(parents=True, exist_ok=True)
     request_payload = {"prompt": prompt, "input": payload}
@@ -54,18 +57,23 @@ def generate_narrative(
         )
         if attempt and last_error:
             user_text += f"\n\nCorrect your previous output. Validation error: {last_error}"
-        response = client.messages.create(
+        response = client.chat.completions.create(
             model=model,
             max_tokens=2500,
-            messages=[{"role": "user", "content": user_text}],
-            output_config={
-                "format": {
-                    "type": "json_schema",
-                    "schema": NarrativeOutput.model_json_schema(),
-                }
-            },
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "Return only one valid JSON object with exactly these keys: "
+                        "narrative (string), referenced_asset_ids (array of strings), "
+                        "referenced_wave_numbers (array of integers)."
+                    ),
+                },
+                {"role": "user", "content": user_text},
+            ],
+            response_format={"type": "json_object"},
         )
-        response_text = next((block.text for block in response.content if block.type == "text"), "")
+        response_text = response.choices[0].message.content or ""
         (logs / f"{log_name}.attempt-{attempt + 1}.json").write_text(
             response_text, encoding="utf-8"
         )

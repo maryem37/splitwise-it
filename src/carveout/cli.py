@@ -114,7 +114,7 @@ def main() -> int:
         subparser.add_argument("--expert", default="data/expert_plan_v1.yaml")
         subparser.add_argument("--robustness-portfolio", default="data/portfolio_v2.yaml")
         subparser.add_argument("--output", default="output")
-        subparser.add_argument("--ai", action="store_true", help="Generate narrative with the configured Claude API")
+        subparser.add_argument("--ai", action="store_true", help="Generate narrative with the configured Groq API")
         if command == "schema":
             subparser.add_argument("--schema-output", default="schema/portfolio.schema.json")
     parser.set_defaults(_handler=run)

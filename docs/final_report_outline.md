@@ -14,7 +14,7 @@ dependency direction, SCC grouping, capacity limits, and date constraints.
 ## Architecture
 
 Refer to [architecture.md](architecture.md). The code computes strategies,
-waves, dates, metrics, and risks. Optional Claude output only supplies narrative
+waves, dates, metrics, and risks. Optional Groq output only supplies narrative
 sections; document tables are rendered from computed values.
 
 ## Results
