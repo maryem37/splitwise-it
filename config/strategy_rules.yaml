@@ -1,0 +1,36 @@
+# Ordered, deterministic rules. First matching rule wins.
+rules:
+  - name: retire_confirmed_legacy_assets
+    asset_ids: [INF-05, DB-06, APP-05, APP-12]
+    strategy: retire
+    reason: Confirmed unused legacy component or duplicate outside the target perimeter.
+    confidence: 0.95
+  - name: rebuild_shared_identity_and_data_services
+    asset_ids: [INF-03, DB-01, APP-08, APP-09]
+    strategy: rebuild
+    reason: Requires a newly separated identity, data, payment, or HR capability.
+    confidence: 0.85
+  - name: retain_shared_services_under_tsa
+    asset_ids: [INF-01, INF-02, DB-05, APP-01, APP-14, APP-19]
+    strategy: retain_under_tsa
+    reason: Shared parent service must remain available while separation work completes.
+    confidence: 0.90
+  - name: clone_target_owned_platform_components
+    asset_ids: [INF-04, APP-13, APP-18]
+    strategy: clone
+    reason: Small target-owned platform component can be reproduced in the buyer environment.
+    confidence: 0.85
+  - name: migrate_carved_out_assets
+    owners: [carved_out]
+    strategy: migrate
+    reason: Asset belongs to the carved-out business and has no earlier rule requiring another strategy.
+    confidence: 0.75
+  - name: retain_parent_or_shared_by_default
+    owners: [parent, shared]
+    strategy: retain_under_tsa
+    reason: Asset is outside the target perimeter or remains shared; confirm TSA disposition.
+    confidence: 0.60
+default:
+  strategy: migrate
+  reason: Default pending portfolio-specific review.
+  confidence: 0.50

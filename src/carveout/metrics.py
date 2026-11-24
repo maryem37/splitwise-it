@@ -27,9 +27,9 @@ def calculate_metrics(portfolio: Portfolio, sequencing: dict[str, Any]) -> dict[
         # by the actual planned duration.
         linked_ids = {asset.id for asset in portfolio.assets if asset.tsa_id == service.id}
         completions = [
-            date.fromisoformat(wave["planned_completion"])
+            date.fromisoformat(wave["asset_completion_dates"][asset_id])
             for wave in sequencing["waves"]
-            if linked_ids.intersection(wave["assets"])
+            for asset_id in linked_ids.intersection(wave["assets"])
         ]
         end = max(completions, default=service.start_date)
         months = max(0, (end.year - service.start_date.year) * 12

@@ -20,21 +20,47 @@ def _add_months(value: date, months: int) -> date:
     return date(year, month, min(value.day, calendar.monthrange(year, month)[1]))
 
 
+def _as_date(value: date | str) -> date:
+    return value if isinstance(value, date) else date.fromisoformat(value)
+
+
 def _wave_start(
     candidate: date, freeze_periods: list[dict[str, str]]
 ) -> date:
     """Move a planned start past any freeze period that contains it."""
     while True:
         blocked = next((period for period in freeze_periods
-                       if date.fromisoformat(period["start"]) <= candidate
-                       <= date.fromisoformat(period["end"])), None)
+                       if _as_date(period["start"]) <= candidate
+                       <= _as_date(period["end"])), None)
         if blocked is None:
             return candidate
-        candidate = date.fromisoformat(blocked["end"]) + timedelta(days=1)
+        candidate = _as_date(blocked["end"]) + timedelta(days=1)
+
+
+def _planning_graph(portfolio: Portfolio, strategies: list[dict[str, Any]] | None) -> nx.DiGraph:
+    """Keep TSA-provided services available and schedule their exit after consumers."""
+    graph = build_graph(portfolio)
+    if not strategies:
+        return graph
+    retained = {
+        item["asset_id"] for item in strategies
+        if item.get("strategy") == "retain_under_tsa"
+    }
+    for service_id in retained:
+        if service_id not in graph:
+            continue
+        consumers = list(graph.predecessors(service_id))
+        for consumer in consumers:
+            attrs = dict(graph.get_edge_data(consumer, service_id) or {})
+            graph.remove_edge(consumer, service_id)
+            graph.add_edge(service_id, consumer, **attrs)
+    return graph
 
 
 def compute_waves(
-    portfolio: Portfolio, constraints_path: str | Path | None = None
+    portfolio: Portfolio,
+    constraints_path: str | Path | None = None,
+    strategies: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     config = {}
     if constraints_path:
@@ -43,11 +69,13 @@ def compute_waves(
     gap_weeks = int(config.get("weeks_per_wave_gap", portfolio.planning.weeks_per_wave_gap))
     freeze_periods = config.get("freeze_periods", [])
 
-    graph = build_graph(portfolio)
+    source_graph = build_graph(portfolio)
+    graph = _planning_graph(portfolio, strategies)
     condensed = nx.condensation(graph)
     # Input edges point from a consumer to its prerequisite. Reverse to schedule
     # prerequisites first in the condensation DAG.
     prerequisites_first = condensed.reverse(copy=True)
+    asset_prerequisites_first = graph.reverse(copy=True)
     depths: dict[int, int] = {}
     for component in nx.topological_sort(prerequisites_first):
         depths[component] = 1 + max(
@@ -91,49 +119,49 @@ def compute_waves(
     tsa_by_id = {service.id: service for service in portfolio.tsa_services}
 
     waves: list[dict[str, Any]] = []
-    previous_start = portfolio.planning.cutover_start - timedelta(weeks=gap_weeks)
+    previous_completion = portfolio.planning.cutover_start
     for number, wave_assets in enumerate(scheduled_assets, start=1):
-        candidate = (portfolio.planning.cutover_start if number == 1
-                     else previous_start + timedelta(weeks=gap_weeks))
+        candidate = (portfolio.planning.cutover_start if number == 1 else
+                     previous_completion + timedelta(weeks=gap_weeks))
         start = _wave_start(candidate, freeze_periods)
-        previous_start = start
         completion = start + timedelta(
             weeks=max((asset_by_id[item].effort_weeks for item in wave_assets), default=0)
         )
+        previous_completion = completion
         depends_on = sorted({
-            asset_to_wave[relation.target]
-            for relation in portfolio.relationships
-            if relation.source in wave_assets
-            and relation.target in asset_to_wave
-            and asset_to_wave[relation.target] < number
+            asset_to_wave[dependency]
+            for asset_id in wave_assets
+            for dependency in asset_prerequisites_first.predecessors(asset_id)
+            if dependency in asset_to_wave and asset_to_wave[dependency] < number
         })
         wave_conflicts: list[dict[str, Any]] = []
         for asset_id in wave_assets:
             asset = asset_by_id[asset_id]
+            asset_completion = start + timedelta(weeks=asset.effort_weeks)
             if asset.licence_id:
                 licence = licence_by_id.get(asset.licence_id)
-                if licence and completion > licence.end_date:
+                if licence and asset_completion > licence.end_date:
                     wave_conflicts.append({
                         "type": "licence_expires_before_cutover",
                         "asset_id": asset_id,
                         "licence_id": licence.id,
                         "expiry": licence.end_date.isoformat(),
-                        "planned_completion": completion.isoformat(),
+                        "planned_completion": asset_completion.isoformat(),
                     })
             if asset.tsa_id:
                 service = tsa_by_id.get(asset.tsa_id)
-                if service and completion > service.end_date:
+                if service and asset_completion > service.end_date:
                     extension_end = _add_months(service.end_date, service.extension_months)
-                    within_extension = service.extendable and completion <= extension_end
+                    within_extension = service.extendable and asset_completion <= extension_end
                     wave_conflicts.append({
                         "type": "tsa_extension_required" if within_extension else "tsa_ends_before_cutover",
                         "asset_id": asset_id,
                         "tsa_id": service.id,
                         "tsa_end": service.end_date.isoformat(),
                         "extension_end": extension_end.isoformat() if service.extendable else None,
-                        "planned_completion": completion.isoformat(),
+                        "planned_completion": asset_completion.isoformat(),
                         "message": (
-                            f"{asset_id} needs {service.id} through {completion.isoformat()}, "
+                            f"{asset_id} needs {service.id} through {asset_completion.isoformat()}, "
                             f"but the TSA ends {service.end_date.isoformat()}."
                         ),
                     })
@@ -144,12 +172,16 @@ def compute_waves(
             "depends_on_waves": depends_on,
             "planned_start": start.isoformat(),
             "planned_completion": completion.isoformat(),
+            "asset_completion_dates": {
+                asset_id: (start + timedelta(weeks=asset_by_id[asset_id].effort_weeks)).isoformat()
+                for asset_id in sorted(wave_assets)
+            },
             "conflicts": wave_conflicts,
         })
 
     return {
         "waves": waves,
-        "cycles": cycles(graph),
+        "cycles": cycles(source_graph),
         "conflicts": conflicts,
         "constraints": {
             "max_assets_per_wave": capacity,

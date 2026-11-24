@@ -1,0 +1,20 @@
+# Small modified portfolio for deterministic robustness checks.
+planning:
+  company: Nordia Retail Test Portfolio
+  carve_out_description: Reduced portfolio used to check pipeline generality
+  day1: 2027-01-04
+  cutover_start: 2027-03-01
+  target_tsa_exit: 2027-12-31
+  max_assets_per_wave: 3
+  weeks_per_wave_gap: 1
+
+assets:
+  - {id: V2-INF-01, name: Target cloud foundation, type: infrastructure, owner: carved_out, criticality: 4, users: 0, hosting: Azure, effort_weeks: 2}
+  - {id: V2-DB-01, name: Order data, type: datastore, owner: carved_out, criticality: 5, users: 0, sensitive: true, hosting: Azure, effort_weeks: 2}
+  - {id: V2-APP-01, name: Order service, type: application, owner: carved_out, criticality: 5, users: 120, function: orders, hosting: Azure, effort_weeks: 3}
+  - {id: V2-APP-02, name: Returns service, type: application, owner: carved_out, criticality: 3, users: 30, function: returns, hosting: Azure, effort_weeks: 2}
+
+relationships:
+  - {source: V2-DB-01, target: V2-INF-01, type: HOSTED_ON}
+  - {source: V2-APP-01, target: V2-DB-01, type: READS_FROM}
+  - {source: V2-APP-02, target: V2-APP-01, type: CALLS}

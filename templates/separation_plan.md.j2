@@ -1,0 +1,31 @@
+# {{ company }} separation plan
+
+{{ description }}
+
+## Executive summary
+
+The deterministic portfolio analysis contains {{ strategies | length }} assets,
+{{ waves | length }} planned waves, and {{ metrics.cycle_count }} dependency cycles.
+The latest planned completion is {{ metrics.latest_planned_completion }}. Estimated
+TSA cost is {{ metrics.estimated_tsa_cost_total }}.
+
+## Strategy by asset
+
+| Asset | Strategy | Reason |
+|---|---|---|
+{% for decision in strategies %}| {{ decision.asset_id }} | {{ decision.strategy }} | {{ decision.reason | join('; ') }} |
+{% endfor %}
+
+## Wave overview
+
+| Wave | Planned start | Planned completion | Assets | Conflicts |
+|---:|---|---|---|---|
+{% for wave in waves %}| {{ wave.wave }} | {{ wave.planned_start }} | {{ wave.planned_completion }} | {{ wave.assets | join(', ') }} | {{ wave.conflicts | length }} |
+{% endfor %}
+
+## Assumptions
+
+- A relationship from source to target means the source depends on the target.
+- Strategies and sequencing are computed by deterministic code.
+- Dates are estimates based on the supplied effort values and configured wave gap.
+- Conflicts in the generated waves require programme owner decisions.

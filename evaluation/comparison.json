@@ -1,0 +1,197 @@
+{
+  "summary": {
+    "dependency_violations": 0,
+    "strategy_match_percent": 83.33,
+    "wave_exact_match_percent": 20.0,
+    "wave_order_similarity_percent": 67.86,
+    "risk_coverage_percent": 80.0,
+    "hallucination_count": 0,
+    "hallucination_assets": [],
+    "cycles_grouped": true,
+    "expert_asset_count": 30,
+    "computed_asset_count": 30
+  },
+  "strategy_comparison": [
+    {
+      "asset_id": "INF-01",
+      "expected_strategy": "retain_under_tsa",
+      "actual_strategy": "retain_under_tsa",
+      "match": true
+    },
+    {
+      "asset_id": "INF-02",
+      "expected_strategy": "retain_under_tsa",
+      "actual_strategy": "retain_under_tsa",
+      "match": true
+    },
+    {
+      "asset_id": "INF-03",
+      "expected_strategy": "rebuild",
+      "actual_strategy": "rebuild",
+      "match": true
+    },
+    {
+      "asset_id": "INF-04",
+      "expected_strategy": "migrate",
+      "actual_strategy": "clone",
+      "match": false
+    },
+    {
+      "asset_id": "INF-05",
+      "expected_strategy": "retire",
+      "actual_strategy": "retire",
+      "match": true
+    },
+    {
+      "asset_id": "DB-01",
+      "expected_strategy": "rebuild",
+      "actual_strategy": "rebuild",
+      "match": true
+    },
+    {
+      "asset_id": "DB-02",
+      "expected_strategy": "migrate",
+      "actual_strategy": "migrate",
+      "match": true
+    },
+    {
+      "asset_id": "DB-03",
+      "expected_strategy": "migrate",
+      "actual_strategy": "migrate",
+      "match": true
+    },
+    {
+      "asset_id": "DB-04",
+      "expected_strategy": "migrate",
+      "actual_strategy": "migrate",
+      "match": true
+    },
+    {
+      "asset_id": "DB-05",
+      "expected_strategy": "retain_under_tsa",
+      "actual_strategy": "retain_under_tsa",
+      "match": true
+    },
+    {
+      "asset_id": "DB-06",
+      "expected_strategy": "retire",
+      "actual_strategy": "retire",
+      "match": true
+    },
+    {
+      "asset_id": "APP-01",
+      "expected_strategy": "retain_under_tsa",
+      "actual_strategy": "retain_under_tsa",
+      "match": true
+    },
+    {
+      "asset_id": "APP-02",
+      "expected_strategy": "migrate",
+      "actual_strategy": "migrate",
+      "match": true
+    },
+    {
+      "asset_id": "APP-03",
+      "expected_strategy": "migrate",
+      "actual_strategy": "migrate",
+      "match": true
+    },
+    {
+      "asset_id": "APP-04",
+      "expected_strategy": "migrate",
+      "actual_strategy": "migrate",
+      "match": true
+    },
+    {
+      "asset_id": "APP-05",
+      "expected_strategy": "retire",
+      "actual_strategy": "retire",
+      "match": true
+    },
+    {
+      "asset_id": "APP-06",
+      "expected_strategy": "migrate",
+      "actual_strategy": "migrate",
+      "match": true
+    },
+    {
+      "asset_id": "APP-07",
+      "expected_strategy": "migrate",
+      "actual_strategy": "migrate",
+      "match": true
+    },
+    {
+      "asset_id": "APP-08",
+      "expected_strategy": "rebuild",
+      "actual_strategy": "rebuild",
+      "match": true
+    },
+    {
+      "asset_id": "APP-09",
+      "expected_strategy": "rebuild",
+      "actual_strategy": "rebuild",
+      "match": true
+    },
+    {
+      "asset_id": "APP-10",
+      "expected_strategy": "retain_under_tsa",
+      "actual_strategy": "retain_under_tsa",
+      "match": true
+    },
+    {
+      "asset_id": "APP-11",
+      "expected_strategy": "migrate",
+      "actual_strategy": "migrate",
+      "match": true
+    },
+    {
+      "asset_id": "APP-12",
+      "expected_strategy": "retire",
+      "actual_strategy": "retire",
+      "match": true
+    },
+    {
+      "asset_id": "APP-13",
+      "expected_strategy": "migrate",
+      "actual_strategy": "clone",
+      "match": false
+    },
+    {
+      "asset_id": "APP-14",
+      "expected_strategy": "rebuild",
+      "actual_strategy": "retain_under_tsa",
+      "match": false
+    },
+    {
+      "asset_id": "APP-15",
+      "expected_strategy": "migrate",
+      "actual_strategy": "migrate",
+      "match": true
+    },
+    {
+      "asset_id": "APP-16",
+      "expected_strategy": "migrate",
+      "actual_strategy": "migrate",
+      "match": true
+    },
+    {
+      "asset_id": "APP-17",
+      "expected_strategy": "migrate",
+      "actual_strategy": "migrate",
+      "match": true
+    },
+    {
+      "asset_id": "APP-18",
+      "expected_strategy": "migrate",
+      "actual_strategy": "clone",
+      "match": false
+    },
+    {
+      "asset_id": "APP-19",
+      "expected_strategy": "rebuild",
+      "actual_strategy": "retain_under_tsa",
+      "match": false
+    }
+  ],
+  "dependency_violations": []
+}

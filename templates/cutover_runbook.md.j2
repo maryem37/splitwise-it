@@ -1,0 +1,38 @@
+# Cutover runbook — Wave {{ wave.wave }}
+
+**Planned start:** {{ wave.planned_start }}  
+**Planned completion:** {{ wave.planned_completion }}  
+**Prerequisite waves:** {{ wave.depends_on_waves | join(', ') if wave.depends_on_waves else 'None' }}
+
+## Scope
+
+{% if narrative %}{{ narrative }}
+
+{% endif %}
+{% for asset in assets %}- `{{ asset.id }}` — {{ asset.name }} ({{ asset.type.value }})
+{% endfor %}
+
+## Pre-checks
+
+1. Confirm prerequisite waves and all listed dependencies are available.
+2. Confirm named business and technical owners are on the cutover bridge.
+3. Confirm backups, monitoring, access, and the rollback decision maker.
+4. Review TSA, licence, data protection, and wave conflict records.
+
+## Cutover steps
+
+{% for asset in assets %}{{ loop.index }}. Migrate or configure `{{ asset.id }}` ({{ asset.name }}); verify dependencies: {{ dependencies[asset.id] | join(', ') if dependencies[asset.id] else 'none' }}.
+{% endfor %}
+
+## Validation and go/no-go
+
+- Run application smoke tests and business transaction checks for every asset.
+- Reconcile data counts and totals where the asset stores or processes data.
+- **Go** only when critical checks pass, owners sign off, and monitoring is healthy.
+- **No-go** if integrity, security, or critical service checks fail.
+
+## Rollback
+
+Stop new writes, restore the prior routing/configuration, validate the source service,
+reconcile transactions created during cutover, and obtain business sign-off before
+rescheduling. The change owner records the decision and evidence.
