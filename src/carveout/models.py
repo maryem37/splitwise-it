@@ -50,7 +50,9 @@ class Asset(BaseModel):
     function: str | None = None          # used to spot duplicates (e.g. two CRMs)
     hosting: str | None = None
     sensitive: bool = False              # personal / financial data
-    effort_weeks: int = Field(default=2, ge=0)  # separation effort estimate
+    build_effort_weeks: int = Field(default=0, ge=0)
+    effort_weeks: int = Field(default=2, ge=0, description="Cutover effort after the target is ready")
+    exit_strategy: Strategy | None = None
     licence_id: str | None = None
     tsa_id: str | None = None
     notes: str | None = None
@@ -98,6 +100,7 @@ class Planning(BaseModel):
     day1: date                       # legal close / start of TSA
     cutover_start: date              # earliest date a wave may start
     target_tsa_exit: date
+    currency: str = "USD"
     max_assets_per_wave: int = 8
     weeks_per_wave_gap: int = 2      # stabilisation time between waves
 

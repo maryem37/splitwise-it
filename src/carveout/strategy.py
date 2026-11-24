@@ -33,20 +33,35 @@ def assess_strategies(
     for asset in portfolio.assets:
         matched = next((rule for rule in rules if _matches(rule, asset)), None)
         if matched:
+            strategy = matched["strategy"]
             decisions.append({
                 "asset_id": asset.id,
-                "strategy": matched["strategy"],
+                "strategy": strategy,
                 "reason": [matched["reason"]],
                 "confidence": float(matched.get("confidence", 0.5)),
                 "rule": matched["name"],
+                **({"exit_strategy": asset.exit_strategy.value}
+                   if strategy == "retain_under_tsa" and asset.exit_strategy else {}),
             })
         else:
             fallback = config.get("default", {})
+            strategy = fallback.get("strategy", "migrate")
             decisions.append({
                 "asset_id": asset.id,
-                "strategy": fallback.get("strategy", "migrate"),
+                "strategy": strategy,
                 "reason": [fallback.get("reason", "Default pending review.")],
                 "confidence": float(fallback.get("confidence", 0.5)),
                 "rule": "default",
+                **({"exit_strategy": asset.exit_strategy.value}
+                   if strategy == "retain_under_tsa" and asset.exit_strategy else {}),
             })
+    missing_exits = [
+        item["asset_id"] for item in decisions
+        if item["strategy"] == "retain_under_tsa" and "exit_strategy" not in item
+    ]
+    if missing_exits:
+        raise ValueError(
+            "Assets retained under TSA need an exit_strategy: "
+            + ", ".join(missing_exits)
+        )
     return decisions
