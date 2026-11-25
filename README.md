@@ -69,6 +69,16 @@ All capabilities are unified inside a single FastAPI web platform (`http://127.0
 
 ![Dependency Graph across 6 waves](docs/screenshots/01_dependency_graph_waves.jpg)
 
+#### Interactive Node Inspection — Licence Conflict (`APP-08`)
+> Clicking `APP-08` highlights upstream prerequisites (`APP-01`, `INF-04`), downstream dependants (`APP-02`, `APP-03`), and the active `licence_expires_before_cutover: 2027-04-30` conflict.
+
+![Interactive Graph selecting APP-08 showing conflict](docs/screenshots/14_graph_node_app08_conflict.jpg)
+
+#### Interactive Node Inspection — Circular Dependency (`APP-06 ↔ APP-07`)
+> Clicking `APP-06` highlights its 4 prerequisites and bidirectional circular coupling with `APP-07` in Wave 2.
+
+![Interactive Graph selecting APP-06 showing cycle](docs/screenshots/15_graph_node_app06_cycle.jpg)
+
 #### Gantt Calendar Timeline
 > Wave execution windows across 2027 against the `31/12/2027` target TSA exit deadline.
 
