@@ -27,15 +27,105 @@ def _themes(text: str) -> set[str]:
     return {kw for kw in _THEME_KEYWORDS if kw in low}
 
 
-def _risk_matches(expert_risk: dict[str, Any], generated_risk: dict[str, Any], known_assets: set[str]) -> bool:
+def _risk_match_details(
+    expert_risk: dict[str, Any], generated_risk: dict[str, Any], known_assets: set[str]
+) -> tuple[bool, set[str], set[str]]:
     exp_text = f"{expert_risk.get('risk', '')} {expert_risk.get('cause', '')}"
     gen_text = f"{generated_risk.get('risk', '')} {generated_risk.get('cause', '')}"
     exp_assets = set(expert_risk.get("asset_ids", [])) | (set(_ID_PATTERN.findall(exp_text)) & known_assets)
     gen_assets = set(generated_risk.get("asset_ids", []))
+    shared_assets = exp_assets & gen_assets
     shared_themes = _themes(exp_text) & _themes(gen_text)
-    if exp_assets and (exp_assets & gen_assets) and shared_themes:
-        return True
-    return len(shared_themes) >= 2
+    matched = (bool(exp_assets) and bool(shared_assets) and bool(shared_themes)) or len(shared_themes) >= 2
+    return matched, shared_themes, shared_assets
+
+
+def _risk_matches(expert_risk: dict[str, Any], generated_risk: dict[str, Any], known_assets: set[str]) -> bool:
+    matched, _, _ = _risk_match_details(expert_risk, generated_risk, known_assets)
+    return matched
+
+
+def _explain_risk_match(
+    expert_risk: dict[str, Any],
+    generated_risks: list[dict[str, Any]],
+    known_assets: set[str],
+) -> dict[str, Any]:
+    exp_text = f"{expert_risk.get('risk', '')} {expert_risk.get('cause', '')}"
+    exp_assets = sorted(set(expert_risk.get("asset_ids", [])) | (set(_ID_PATTERN.findall(exp_text)) & known_assets))
+    exp_themes = sorted(_themes(exp_text))
+    matches: list[tuple[int, int, dict[str, Any], set[str], set[str]]] = []
+    candidates: list[tuple[int, int, dict[str, Any], set[str], set[str]]] = []
+    for gen in generated_risks:
+        matched, shared_themes, shared_assets = _risk_match_details(expert_risk, gen, known_assets)
+        entry = (len(shared_assets), len(shared_themes), gen, shared_themes, shared_assets)
+        if matched:
+            matches.append(entry)
+        else:
+            candidates.append(entry)
+
+    if matches:
+        matches.sort(key=lambda item: (item[0], item[1], item[2].get("id", "")), reverse=True)
+        _, _, best, s_themes, s_assets = matches[0]
+        return {
+            "expert_id": expert_risk.get("id", ""),
+            "expert_risk": expert_risk.get("risk", ""),
+            "matched": True,
+            "generated_id": best.get("id", ""),
+            "shared_themes": sorted(s_themes),
+            "shared_assets": sorted(s_assets),
+            "reason": "matched",
+        }
+
+    if not exp_themes:
+        reason = "No theme keywords detected in expert risk."
+    elif candidates:
+        candidates.sort(key=lambda item: (item[0] + item[1], item[1], item[0]), reverse=True)
+        _, _, best, s_themes, s_assets = candidates[0]
+        if s_themes or s_assets:
+            reason = (
+                f"Below threshold (needs asset+>=1 theme or >=2 themes); closest {best.get('id', '')} "
+                f"shares themes={sorted(s_themes)} and assets={sorted(s_assets)} "
+                f"(expert themes={exp_themes}, expert assets={exp_assets})."
+            )
+        else:
+            reason = f"No generated risk shares any theme or asset (expert themes={exp_themes}, expert assets={exp_assets})."
+    else:
+        reason = "No generated risks to compare against."
+
+    return {
+        "expert_id": expert_risk.get("id", ""),
+        "expert_risk": expert_risk.get("risk", ""),
+        "matched": False,
+        "generated_id": None,
+        "shared_themes": [],
+        "shared_assets": [],
+        "reason": reason,
+    }
+
+
+def format_evaluation_explanation(comparison_data: dict[str, Any]) -> str:
+    """Format per-asset strategy and per-risk matching explanations for CLI output."""
+    lines = ["=== Strategy Comparison by Asset ==="]
+    lines.append(f"{'Asset':<8} | {'Expected':<16} | {'Computed':<16} | {'Exit':<10} | Verdict")
+    lines.append("-" * 72)
+    for row in comparison_data.get("strategy_comparison", []):
+        verdict = "MATCH" if row["match"] else "MISMATCH"
+        lines.append(
+            f"{row['asset_id']:<8} | {str(row.get('expected_strategy') or ''):<16} | "
+            f"{str(row.get('actual_strategy') or ''):<16} | "
+            f"{str(row.get('exit_strategy') or '-'):<10} | {verdict}"
+        )
+    lines.append("")
+    lines.append("=== Expert Risk Matching ===")
+    for item in comparison_data.get("risk_explanations", []):
+        if item["matched"]:
+            lines.append(
+                f"{item['expert_id']} -> {item['generated_id']} | "
+                f"themes={item['shared_themes']} | assets={item['shared_assets']}"
+            )
+        else:
+            lines.append(f"{item['expert_id']} -> UNMATCHED | {item['reason']}")
+    return "\n".join(lines)
 
 
 def evaluate_results(
@@ -50,12 +140,21 @@ def evaluate_results(
     expert = yaml.safe_load(Path(expert_path).read_text(encoding="utf-8"))
     expected_strategies = expert.get("strategies", {})
     actual_strategies = {item["asset_id"]: item["strategy"] for item in strategies}
+    exit_strategies = {item["asset_id"]: item.get("exit_strategy") for item in strategies}
     strategy_rows = []
     for asset in portfolio.assets:
         expected = expected_strategies.get(asset.id, {}).get("strategy")
         actual = actual_strategies.get(asset.id)
-        strategy_rows.append({"asset_id": asset.id, "expected_strategy": expected,
-                              "actual_strategy": actual, "match": expected == actual})
+        exit_strategy = exit_strategies.get(asset.id)
+        compared = exit_strategy if actual == "retain_under_tsa" and exit_strategy else actual
+        strategy_rows.append({
+            "asset_id": asset.id,
+            "expected_strategy": expected,
+            "actual_strategy": actual,
+            "exit_strategy": exit_strategy,
+            "compared_strategy": compared,
+            "match": expected == compared,
+        })
 
     expected_wave = {
         asset_id: item["wave"]
@@ -80,10 +179,11 @@ def evaluate_results(
     )
     known_assets = {asset.id for asset in portfolio.assets}
     expert_risks = expert.get("top_risks", [])
-    covered_risks = sum(
-        1 for exp in expert_risks
-        if any(_risk_matches(exp, gen, known_assets) for gen in generated_risks)
-    )
+    risk_explanations = [
+        _explain_risk_match(exp, generated_risks, known_assets)
+        for exp in expert_risks
+    ]
+    covered_risks = sum(1 for item in risk_explanations if item["matched"])
     risk_coverage = covered_risks / max(1, len(expert_risks))
 
     references = set(actual_strategies)
@@ -144,6 +244,7 @@ def evaluate_results(
     (out / "comparison.json").write_text(json.dumps({
         "summary": summary,
         "strategy_comparison": strategy_rows,
+        "risk_explanations": risk_explanations,
         "dependency_violations": dependency_violations,
     }, indent=2, ensure_ascii=False), encoding="utf-8")
     (out / "comparison.md").write_text(

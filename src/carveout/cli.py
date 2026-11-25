@@ -10,7 +10,7 @@ from .graph import build_graph, export_graph, export_html
 from .dashboard import export_dashboard
 from .generation.documents import generate_documents
 from .generation.documents import build_risk_register
-from .evaluate import evaluate_results, evaluate_robustness
+from .evaluate import evaluate_results, evaluate_robustness, format_evaluation_explanation
 from .loader import load_portfolio, validate_portfolio, write_report
 from .metrics import calculate_metrics
 from .models import Portfolio
@@ -103,6 +103,9 @@ def run(args: argparse.Namespace) -> int:
         if args.command in ("evaluate", "run-all"):
             risks = build_risk_register(portfolio, sequencing)
             evaluate_results(portfolio, expert_path, decisions, sequencing, risks, ROOT / "evaluation", docs_dir=output_dir)
+            if args.command == "evaluate" and getattr(args, "explain", False):
+                comparison = json.loads((ROOT / "evaluation" / "comparison.json").read_text(encoding="utf-8"))
+                print(format_evaluation_explanation(comparison))
             robustness_portfolio = load_portfolio(robustness_path)
             robustness_report = validate_portfolio(robustness_portfolio)
             if not robustness_report["valid"]:
@@ -197,6 +200,9 @@ def main() -> int:
                          help="Generate narrative using the Groq API")
         if command == "schema":
             sub.add_argument("--schema-output", default="schema/portfolio.schema.json")
+        if command == "evaluate":
+            sub.add_argument("--explain", action="store_true",
+                             help="Print per-asset strategy and per-risk matching explanations")
 
     # ── neo4j-load ─────────────────────────────────────────────────────────
     sub_load = subparsers.add_parser(

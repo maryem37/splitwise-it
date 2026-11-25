@@ -509,3 +509,48 @@ def test_risk_register_no_duplicate_with_conflict(tmp_path):
     tsa_dup_risks = [r for r in risks if "TSA-DUP" in r["risk"]]
     # Only the conflict-driven risk should appear, not the structural non-extendable one too
     assert len(tsa_dup_risks) == 1, f"Expected exactly 1 TSA-DUP risk, got {len(tsa_dup_risks)}"
+
+
+# ── Commit 1 (new): evaluate.py exit_strategy comparison & --explain ──────
+
+def test_evaluate_compares_retain_under_tsa_to_exit_strategy_and_explains(tmp_path, capsys):
+    """evaluate_results must compare retain_under_tsa to exit_strategy and produce explain output."""
+    from carveout.evaluate import format_evaluation_explanation
+    from carveout.cli import main as cli_main
+
+    portfolio = load_portfolio(ROOT / "data/portfolio_v1.yaml")
+    strategies = assess_strategies(portfolio, ROOT / "config/strategy_rules.yaml")
+    sequencing = compute_waves(portfolio, ROOT / "config/constraints.yaml", strategies)
+    risks = build_risk_register(portfolio, sequencing)
+    eval_dir = tmp_path / "eval"
+
+    evaluate_results(portfolio, ROOT / "data/expert_plan_v1.yaml", strategies, sequencing, risks, eval_dir)
+    comparison = json.loads((eval_dir / "comparison.json").read_text(encoding="utf-8"))
+    by_id = {row["asset_id"]: row for row in comparison["strategy_comparison"]}
+
+    # APP-14 and APP-19 are retain_under_tsa with exit_strategy=rebuild, matching expert's rebuild
+    assert by_id["APP-14"]["actual_strategy"] == "retain_under_tsa"
+    assert by_id["APP-14"]["exit_strategy"] == "rebuild"
+    assert by_id["APP-14"]["match"] is True
+    assert by_id["APP-19"]["match"] is True
+    # INF-01 is retain_under_tsa with exit_strategy=migrate vs expert retain_under_tsa -> mismatch
+    assert by_id["INF-01"]["exit_strategy"] == "migrate"
+    assert by_id["INF-01"]["match"] is False
+
+    explanation = format_evaluation_explanation(comparison)
+    assert "Strategy Comparison by Asset" in explanation
+    assert "Expert Risk Matching" in explanation
+    assert "APP-14" in explanation
+    assert "R-01" in explanation
+
+    # Also test CLI --explain flag
+    old_argv = sys.argv
+    try:
+        sys.argv = ["carveout", "evaluate", "--explain", "--output", str(tmp_path / "out")]
+        rc = cli_main()
+    finally:
+        sys.argv = old_argv
+    assert rc == 0
+    captured = capsys.readouterr().out
+    assert "Strategy Comparison by Asset" in captured
+    assert "Expert Risk Matching" in captured
