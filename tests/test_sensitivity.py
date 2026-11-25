@@ -4,12 +4,33 @@ from pathlib import Path
 
 from carveout.loader import load_portfolio
 from carveout.metrics import calculate_metrics
-from carveout.sensitivity import run_sensitivity
+from carveout.sensitivity import compute_critical_path, run_sensitivity
 from carveout.sequencing import compute_waves
 from carveout.strategy import assess_strategies
 
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def test_critical_path_and_tornado_sorted_descending(tmp_path):
+    portfolio = load_portfolio(ROOT / "data/portfolio_v1.yaml")
+    strategies = assess_strategies(portfolio, ROOT / "config/strategy_rules.yaml")
+    constraints = ROOT / "config/constraints.yaml"
+
+    result = compute_critical_path(portfolio, constraints, strategies, output_dir=tmp_path)
+    tornado = result["tornado"]
+    assert len(tornado) == len(portfolio.assets)
+    # Must be sorted by impact_days descending
+    impacts = [row["impact_days"] for row in tornado]
+    assert impacts == sorted(impacts, reverse=True)
+    assert any(row["impact_days"] > 0 for row in tornado)
+    # Critical path assets must be ordered by wave ascending
+    cp_waves = [row["wave"] for row in result["critical_path"]]
+    assert cp_waves == sorted(cp_waves)
+
+    cp_md = (tmp_path / "critical_path.md").read_text(encoding="utf-8")
+    assert "# Critical path and tornado analysis" in cp_md
+    assert "## Tornado analysis" in cp_md
 
 
 def test_sensitivity_is_deterministic_and_base_matches_run_all(tmp_path):

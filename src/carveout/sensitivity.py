@@ -142,6 +142,84 @@ def _run_monte_carlo(
     return row, mc_stats
 
 
+def compute_critical_path(
+    portfolio: Portfolio,
+    constraints_path: str | Path | None,
+    strategies: list[dict[str, Any]],
+    output_dir: str | Path | None = None,
+) -> dict[str, Any]:
+    """Compute critical-path assets and +2-week tornado delay impact per asset."""
+    base_seq = compute_waves(portfolio, constraints_path, strategies)
+    base_metrics = calculate_metrics(portfolio, base_seq)
+    base_end = date.fromisoformat(base_metrics["latest_planned_completion"])
+    wave_by_asset = {
+        asset_id: wave["wave"]
+        for wave in base_seq["waves"]
+        for asset_id in wave["assets"]
+    }
+
+    tornado: list[dict[str, Any]] = []
+    for asset in portfolio.assets:
+        sim = _clone_portfolio(portfolio)
+        for sim_asset in sim.assets:
+            if sim_asset.id == asset.id:
+                sim_asset.effort_weeks += 2
+                break
+        seq = compute_waves(sim, constraints_path, strategies)
+        metrics = calculate_metrics(sim, seq)
+        delayed_end = date.fromisoformat(metrics["latest_planned_completion"])
+        impact_days = (delayed_end - base_end).days
+        tornado.append({
+            "asset_id": asset.id,
+            "name": asset.name,
+            "wave": wave_by_asset.get(asset.id, 0),
+            "base_completion": base_end.isoformat(),
+            "delayed_completion": delayed_end.isoformat(),
+            "impact_days": impact_days,
+        })
+
+    tornado.sort(key=lambda row: (-row["impact_days"], row["wave"], row["asset_id"]))
+    critical_assets = sorted(
+        (row for row in tornado if row["impact_days"] > 0),
+        key=lambda row: (row["wave"], -row["impact_days"], row["asset_id"]),
+    )
+
+    if output_dir is not None:
+        out = Path(output_dir)
+        out.mkdir(parents=True, exist_ok=True)
+        lines = [
+            "# Critical path and tornado analysis",
+            "",
+            f"Base programme completion: `{base_end.isoformat()}`",
+            "",
+            "## Critical path (ordered by wave)",
+            "",
+        ]
+        if critical_assets:
+            for item in critical_assets:
+                lines.append(
+                    f"1. `{item['asset_id']}` ({item['name']}, Wave {item['wave']}) — "
+                    f"+{item['impact_days']} days impact on +2w delay"
+                )
+        else:
+            lines.append("No single-asset +2w delay shifts the programme completion date.")
+        lines.extend([
+            "",
+            "## Tornado analysis (+2 weeks per asset, sorted by impact)",
+            "",
+            "| Asset | Name | Wave | Delayed completion | Impact (days) |",
+            "|---|---|---:|---|---:|",
+        ])
+        for row in tornado:
+            lines.append(
+                f"| `{row['asset_id']}` | {row['name']} | {row['wave']} | "
+                f"{row['delayed_completion']} | {row['impact_days']} |"
+            )
+        (out / "critical_path.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+    return {"base_completion": base_end.isoformat(), "critical_path": critical_assets, "tornado": tornado}
+
+
 def run_sensitivity(
     portfolio: Portfolio,
     constraints_path: str | Path | None,
@@ -251,4 +329,11 @@ def run_sensitivity(
         md_lines.append(f"- `{count_str}` conflicts: {freq} / {mc_stats['trials']} trials")
     (out / "sensitivity.md").write_text("\n".join(md_lines) + "\n", encoding="utf-8")
 
-    return {"scenarios": rows, "monte_carlo": mc_stats, "monte_carlo_variants": mc_variants}
+    critical = compute_critical_path(portfolio, constraints_path, strategies, output_dir=out)
+
+    return {
+        "scenarios": rows,
+        "monte_carlo": mc_stats,
+        "monte_carlo_variants": mc_variants,
+        "critical_path": critical,
+    }
