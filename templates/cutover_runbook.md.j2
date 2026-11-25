@@ -21,7 +21,14 @@
 
 ## Cutover steps
 
-{% for asset in assets %}{{ loop.index }}. Migrate or configure `{{ asset.id }}` ({{ asset.name }}); verify dependencies: {{ dependencies[asset.id] | join(', ') if dependencies[asset.id] else 'none' }}.
+{% set action_by_strategy = {
+  'migrate': 'Migrate and cut over',
+  'clone': 'Clone and configure',
+  'rebuild': 'Rebuild and cut over',
+  'retire': 'Decommission and retire',
+  'retain_under_tsa': 'Exit TSA once all dependents have moved'
+} -%}
+{% for asset in assets %}{{ loop.index }}. {{ action_by_strategy.get(strategy_by_id.get(asset.id, 'migrate'), 'Migrate or configure') }} `{{ asset.id }}` ({{ asset.name }}); verify dependencies: {{ dependencies[asset.id] | join(', ') if dependencies[asset.id] else 'none' }}.
 {% endfor %}
 
 ## Validation and go/no-go

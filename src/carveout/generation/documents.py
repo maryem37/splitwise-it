@@ -198,6 +198,7 @@ def generate_documents(
     )
 
     written = [output / "separation_plan.md"]
+    strategy_by_id = {item["asset_id"]: item["strategy"] for item in strategies}
     runbooks_dir = output / "runbooks"
     if runbooks_dir.exists():
         for old_runbook in runbooks_dir.glob("wave-*.md"):
@@ -207,7 +208,7 @@ def generate_documents(
         runbook_doc = {"asset_ids": wave["assets"], "wave_numbers": [wave["wave"]]}
         validate_document_references(runbook_doc, known_assets, wave_numbers)
         runbook = env.get_template("cutover_runbook.md.j2").render(
-            wave=wave, assets=wave_assets,
+            wave=wave, assets=wave_assets, strategy_by_id=strategy_by_id,
             dependencies={asset_id: dependencies(graph, asset_id) for asset_id in wave["assets"]},
         )
         runbook_path = output / "runbooks" / f"wave-{wave['wave']:02d}.md"

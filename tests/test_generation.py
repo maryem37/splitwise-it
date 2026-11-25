@@ -154,3 +154,22 @@ def test_tsa_exit_schedule_uses_last_asset_and_cleans_stale_runbooks_and_csv_sem
     }]}
     missed_risks = build_risk_register(portfolio, missed_seq)
     assert any("target TSA exit" in r["risk"] for r in missed_risks)
+
+
+def test_runbook_steps_use_strategy_specific_verbs(tmp_path):
+    portfolio = load_portfolio(ROOT / "data/portfolio_v1.yaml")
+    strategies = assess_strategies(portfolio, ROOT / "config/strategy_rules.yaml")
+    sequencing = compute_waves(portfolio, ROOT / "config/constraints.yaml", strategies)
+    metrics = calculate_metrics(portfolio, sequencing)
+
+    generate_documents(portfolio, strategies, sequencing, metrics, tmp_path)
+
+    wave1 = (tmp_path / "runbooks" / "wave-01.md").read_text(encoding="utf-8")
+    assert "Decommission and retire `INF-05`" in wave1
+    assert "Clone and configure `INF-04`" in wave1
+    assert "Rebuild and cut over `DB-01`" in wave1
+    assert "Migrate and cut over `DB-02`" in wave1
+
+    tsa_wave_num = next(w["wave"] for w in sequencing["waves"] if "APP-01" in w["assets"])
+    tsa_wave = (tmp_path / "runbooks" / f"wave-{tsa_wave_num:02d}.md").read_text(encoding="utf-8")
+    assert "Exit TSA once all dependents have moved `APP-01`" in tsa_wave
