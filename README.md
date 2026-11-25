@@ -244,6 +244,43 @@ flowchart TB
     Platform --> Core & Agents
 ```
 
+### Layer-by-Layer Architectural Breakdown
+
+#### Layer 1 · Data Model & Deterministic Planning Core (`src/carveout/`)
+| Module | Responsibility | Key Mechanism |
+|---|---|---|
+| `models.py` & `loader.py` | Schema validation & ingestion | **Pydantic v2** strict models (`Portfolio`, `Asset`, `Relationship`, `Licence`, `TSAService`) with JSON Schema export (`schema/portfolio.schema.json`). |
+| `graph.py` | Dependency graph & cycles | **NetworkX DiGraph**; detects Strongly Connected Components (SCCs) such as `APP-06 ↔ APP-07` and computes transitive prerequisites/impact. |
+| `strategy.py` | Exit strategy assignment | Ordered first-match rule engine (`config/strategy_rules.yaml`) assigning `clone`, `migrate`, `rebuild`, `retire`, or `retain_under_tsa`. |
+| `sequencing.py` | Wave scheduling & conflicts | Condenses SCCs into a DAG, runs topological wave grouping respecting `max_assets_per_wave`, `weeks_per_wave_gap`, and `freeze_periods`, and flags licence/TSA deadline overruns. |
+| `metrics.py` & `sensitivity.py` | Financial KPIs & risk | Computes per-TSA duration in months, total TSA cost exposure, critical path, and Monte Carlo delay sensitivity. |
+
+#### Layer 2 · Constraint Optimization Engine (`src/carveout/optimization/`)
+| Component | Detail |
+|---|---|
+| **Solver** (`solver.py`) | **Google OR-Tools CP-SAT** integer programming over discrete wave variables `wave[u] ∈ [1..max_waves]`. Configured with `num_search_workers=1` and `random_seed=42` for **100% reproducible results**. |
+| **Hard Constraints** | Dependency precedence (`wave[dep] <= wave[asset]`), reversed exit order for `retain_under_tsa` parent assets, SCC co-location (`wave[APP-06] == wave[APP-07]`), per-wave capacity (`<= 8` assets), and scenario delay floors. |
+| **Objectives** | `minimize_cost` (rate-weighted wave proxy prioritizing early TSA exit), `minimize_duration` (minimizes total waves), and `balanced`. |
+| **Validation** (`validation.py`) | Independent post-solve verification confirming zero constraint violations before any schedule is accepted. |
+
+#### Layer 3 · LangGraph Multi-Agent Orchestration (`src/carveout/agents/`, `workflows/`)
+| Component | Detail |
+|---|---|
+| **State & Routing** (`state.py`, `routing.py`) | Typed `CarveoutState` tracks user request, tool evidence, optimization results, evaluation report, critic decision, correction attempts, node timings, and errors. |
+| **7 Specialized Agents** | `Supervisor` (intent + synthesis) → `Dependency`, `Strategy`, `Risk`, `Optimization` (deterministic tools + CP-SAT) → `Evaluation` (constraint & evidence audit) → `Critic` (deterministic gatekeeper). |
+| **Bounded Correction Loop** (`correction_tools.py`) | Explicit LangGraph cycle (`critic_node → correction_node → evaluation_node`) capped at `max_correction_attempts` (default `2`, max `3`) with **signature deduplication** to prevent infinite loops. |
+| **SQLite Persistence & HITL** (`checkpointer.py`, `approval.py`) | SQLite in **WAL mode** (`PRAGMA busy_timeout = 15000`, `isolation_level=None`) stores checkpoints keyed by `thread_id`. LangGraph `interrupt()` pauses execution for `APPROVE` / `REJECT` / `REQUEST_REVISION` across separate processes or server restarts. |
+
+#### Layer 4 · Decision Intelligence & Explainability (`src/carveout/`)
+- **Strict Fact vs AI Separation (`decision_provenance.py`):** Every decision emits a `DecisionProvenanceRecord` separating `deterministic_facts` (graph edges, wave bounds, constraints) from `narrative_explanation`. LLMs can never override deterministic results.
+- **Asset Explainability (`explain.py`):** Computes per-asset wave justification, blocking dependencies, SCC membership, and `move_earlier` / `move_later` consequences.
+- **Plan Comparison & Isolated Scenarios (`comparison.py`, `scenarios_manager.py`):** Compares Baseline vs CP-SAT (`-$290k` savings) and simulates delays/rate multipliers on deep-copied in-memory models so source YAML files remain immutable.
+
+#### Layer 5 · Unified FastAPI Platform, Security & Observability (`src/carveout/api/`, `logging_config.py`)
+- **Unified Web UI (`ui.py`, `app.py`):** Serves the 6-tab platform at `/`, embeds the interactive visual dashboard at `/dashboard`, and exposes force-directed graphs at `/graph`.
+- **Operational Probes & Telemetry (`telemetry.py`):** `/api/health` (liveness), `/api/ready` (verifies SQLite + portfolio files), `/api/metrics` (request latency, status counts, workflow outcomes), and structured JSON logging (`CARVEOUT_LOG_JSON=true`).
+- **Security Controls (`security.py`):** Constant-time `hmac.compare_digest` verification for `CARVEOUT_APPROVAL_TOKEN`, strict portfolio ID allowlisting (blocks path traversal), and lifespan startup config validation.
+
 ---
 
 ## 5 · Multi-Agent & Human-in-the-Loop Workflow
