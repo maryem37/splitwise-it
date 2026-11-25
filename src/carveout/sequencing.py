@@ -39,22 +39,22 @@ def _wave_start(
 
 def _planning_graph(portfolio: Portfolio, strategies: list[dict[str, Any]] | None) -> nx.DiGraph:
     """Keep TSA-provided services available and schedule their exit after consumers."""
-    graph = build_graph(portfolio)
+    source_graph = build_graph(portfolio)
     if not strategies:
-        return graph
+        return source_graph
     retained = {
         item["asset_id"] for item in strategies
         if item.get("strategy") == "retain_under_tsa"
     }
-    for service_id in sorted(retained):
-        if service_id not in graph:
-            continue
-        consumers = sorted(graph.predecessors(service_id))
-        for consumer in consumers:
-            attrs = dict(graph.get_edge_data(consumer, service_id) or {})
-            graph.remove_edge(consumer, service_id)
-            graph.add_edge(service_id, consumer, **attrs)
-    return graph
+    planning = nx.DiGraph()
+    for node_id, attrs in source_graph.nodes(data=True):
+        planning.add_node(node_id, **attrs)
+    for src, tgt, attrs in source_graph.edges(data=True):
+        if tgt in retained:
+            planning.add_edge(tgt, src, **attrs)
+        else:
+            planning.add_edge(src, tgt, **attrs)
+    return planning
 
 
 def compute_waves(
@@ -124,8 +124,16 @@ def compute_waves(
     waves: list[dict[str, Any]] = []
     previous_completion = portfolio.planning.cutover_start
     for number, wave_assets in enumerate(scheduled_assets, start=1):
-        candidate = (portfolio.planning.cutover_start if number == 1 else
-                     previous_completion + timedelta(weeks=gap_weeks))
+        max_build_end = max(
+            (portfolio.planning.day1 + timedelta(weeks=asset_by_id[item].build_effort_weeks)
+             for item in wave_assets),
+            default=portfolio.planning.cutover_start,
+        )
+        candidate = max(
+            portfolio.planning.cutover_start,
+            max_build_end,
+            portfolio.planning.cutover_start if number == 1 else previous_completion + timedelta(weeks=gap_weeks),
+        )
         start = _wave_start(candidate, freeze_periods)
         completion = start + timedelta(
             weeks=max((asset_by_id[item].effort_weeks for item in wave_assets), default=0)
@@ -180,6 +188,21 @@ def compute_waves(
                 for asset_id in sorted(wave_assets)
             },
             "conflicts": wave_conflicts,
+        })
+
+    latest_completion = max(
+        (date.fromisoformat(wave["planned_completion"]) for wave in waves),
+        default=portfolio.planning.day1,
+    )
+    if latest_completion > portfolio.planning.target_tsa_exit:
+        conflicts.append({
+            "type": "target_tsa_exit_missed",
+            "target_tsa_exit": portfolio.planning.target_tsa_exit.isoformat(),
+            "latest_planned_completion": latest_completion.isoformat(),
+            "message": (
+                f"Latest planned completion {latest_completion.isoformat()} exceeds "
+                f"target TSA exit {portfolio.planning.target_tsa_exit.isoformat()}."
+            ),
         })
 
     return {
