@@ -5,7 +5,8 @@ version: 1
 portfolio: Nordia Retail
 assumptions:
   - Shared parent services remain available under their TSA until the listed exit or an agreed extension.
-  - APP-01 and DB-01 are first retained under TSA, then replaced by a Nordia-owned ERP/data platform; their carve-out exit is a gated milestone.
+  - Parallel build work (`build_effort_weeks`) starts at Day 1 (`2027-01-04`); wave cutovers start at or after `2027-03-01`.
+  - APP-01 and DB-01 are separated into a Nordia-owned ERP/data platform; APP-01 exits TSA-01 after its dependent workloads cut over.
   - Existing asset IDs are the only IDs allowed in computed plans and generated documents.
   - APP-08's zero interactive users do not make it unused; it processes payment settlement traffic.
 strategies:
@@ -45,10 +46,10 @@ strategies:
 expected_waves:
   - {wave: 1, assets: [INF-03, INF-04, APP-13, APP-18], rationale: Establish target identity, platform, integration and monitoring while parent identity remains available under TSA.}
   - {wave: 2, assets: [DB-02, DB-03, DB-04, APP-04, APP-08, APP-17], rationale: Prepare carved-out data, renew/replace payment capability, and core application foundations.}
-  - {wave: 3, assets: [APP-06, APP-07, APP-11, APP-14, APP-19, APP-05, APP-12, DB-06], rationale: Move the inventory/WMS cycle together, replace finance/data flows, and retire unused or duplicate legacy assets.}
+  - {wave: 3, assets: [APP-06, APP-07, APP-11, APP-19, APP-05, APP-12, DB-06], rationale: Move the inventory/WMS cycle together, transition BI/ETL flows, and retire unused or duplicate legacy assets.}
   - {wave: 4, assets: [INF-05, APP-09, APP-15, APP-16], rationale: Move HR and dependent services, then retire the legacy server platform.}
-  - {wave: 5, assets: [APP-02, APP-03], rationale: Cut over customer and store workloads only after their payment, catalogue, ERP and identity paths are proven.}
-  - {wave: 6, assets: [APP-01, DB-01, DB-05, INF-01, INF-02, APP-10], rationale: Close shared-service dependencies after Nordia replacements and consuming workloads are proven.}
+  - {wave: 5, assets: [APP-02, APP-03, APP-14, APP-01, INF-02], rationale: Cut over customer and store workloads after payment, catalogue, ERP and identity paths are proven, then exit shared ERP/finance/WAN TSAs.}
+  - {wave: 6, assets: [DB-01, DB-05, INF-01, APP-10], rationale: Close remaining shared data warehouse, data centre and collaboration TSA dependencies after consuming workloads have exited.}
 top_risks:
   - {id: R-01, risk: ERP and database separation misses TSA-01 end date, cause: Shared platform, large effort and long dependency chain, likelihood: high, impact: critical, owner: Separation lead, mitigation: Approve an ERP replacement milestone plan and negotiate contingency before Day 1.}
   - {id: R-02, risk: Payment settlements stop when LIC-04 expires, cause: Licence ends before the planned cutover, likelihood: high, impact: critical, owner: Payments lead, mitigation: Secure a renewal or replacement contract and rehearse settlement reconciliation.}
