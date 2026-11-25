@@ -554,3 +554,47 @@ def test_evaluate_compares_retain_under_tsa_to_exit_strategy_and_explains(tmp_pa
     captured = capsys.readouterr().out
     assert "Strategy Comparison by Asset" in captured
     assert "Expert Risk Matching" in captured
+
+
+# ── Commit 2 (new): stable deterministic risk IDs ─────────────────────────
+
+def test_stable_risk_ids_identical_across_different_portfolios():
+    """Two different portfolios with the same risk must produce the exact same risk ID."""
+    from datetime import date
+    from carveout.models import Portfolio, Planning, Asset, Licence, AssetType, Owner
+
+    planning = Planning(
+        company="Test", carve_out_description="test",
+        day1=date(2027, 1, 4), cutover_start=date(2027, 3, 1),
+        target_tsa_exit=date(2027, 12, 31),
+    )
+    shared_asset = Asset(
+        id="APP-99", name="Shared App", type=AssetType.APPLICATION,
+        owner=Owner.CARVED_OUT, criticality=4, users=50,
+        licence_id="LIC-99", effort_weeks=2,
+    )
+    extra_asset = Asset(
+        id="APP-00", name="Extra App", type=AssetType.APPLICATION,
+        owner=Owner.CARVED_OUT, criticality=2, users=10,
+        effort_weeks=1,
+    )
+    lic = Licence(
+        id="LIC-99", vendor="Vendor", product="Prod",
+        end_date=date(2028, 12, 31), transferable=False,
+        annual_cost=10000, notice_period_days=30,
+    )
+
+    p1 = Portfolio(planning=planning, assets=[shared_asset], relationships=[], licences=[lic])
+    p2 = Portfolio(planning=planning, assets=[extra_asset, shared_asset], relationships=[], licences=[lic])
+
+    w1 = {"waves": [{"wave": 1, "assets": ["APP-99"], "asset_completion_dates": {"APP-99": "2027-03-15"}}], "conflicts": []}
+    w2 = {"waves": [{"wave": 1, "assets": ["APP-00", "APP-99"], "asset_completion_dates": {"APP-00": "2027-03-08", "APP-99": "2027-03-15"}}], "conflicts": []}
+
+    r1 = build_risk_register(p1, w1)
+    r2 = build_risk_register(p2, w2)
+
+    id1 = next(r["id"] for r in r1 if "LIC-99" in r["risk"])
+    id2 = next(r["id"] for r in r2 if "LIC-99" in r["risk"])
+    assert id1 == id2
+    assert r1 == sorted(r1, key=lambda item: (item["id"], tuple(item["asset_ids"]), item["risk"]))
+    assert r2 == sorted(r2, key=lambda item: (item["id"], tuple(item["asset_ids"]), item["risk"]))

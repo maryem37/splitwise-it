@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import csv
+import hashlib
 import json
 from datetime import date
 from pathlib import Path
@@ -26,16 +27,16 @@ def _write_csv(path: Path, rows: list[dict[str, Any]], columns: list[str]) -> No
         writer.writerows(rows)
 
 
+def _stable_risk_id(category: str, asset_ids: list[str], qualifier: str = "") -> str:
+    """Derive a deterministic risk ID from its category, qualifier, and sorted assets."""
+    key = f"{category}|{qualifier}|{','.join(sorted(asset_ids))}"
+    num = int(hashlib.sha256(key.encode("utf-8")).hexdigest()[:8], 16) % 1_000_000
+    return f"R-{num:06d}"
+
+
 def build_risk_register(portfolio: Portfolio, waves_result: dict[str, Any]) -> list[dict[str, Any]]:
     asset_by_id = {asset.id: asset for asset in portfolio.assets}
     risks: list[dict[str, Any]] = []
-    next_idx = 1
-
-    def _next_id() -> str:
-        nonlocal next_idx
-        rid = f"R-{next_idx:02d}"
-        next_idx += 1
-        return rid
 
     # Track (conflict_type_key, entity_id) pairs already covered by conflict-driven risks
     # so the structural/near-miss rules don't generate duplicates.
@@ -48,15 +49,16 @@ def build_risk_register(portfolio: Portfolio, waves_result: dict[str, Any]) -> l
             lic_id = conflict["licence_id"]
             covered.add(("licence", lic_id))
             covered.add(("licence_asset", aid))
+            assets = [aid]
             risks.append({
-                "id": _next_id(),
+                "id": _stable_risk_id("licence_expires_before_cutover", assets, lic_id),
                 "risk": f"{aid} cutover blocked by {lic_id} licence expiry.",
                 "cause": f"{lic_id} expires on {conflict['expiry']} before planned completion {conflict['planned_completion']}.",
                 "likelihood": "high",
                 "impact": "critical",
                 "owner": "Commercial / product owner",
                 "mitigation": "Secure a bridge licence or expedite replacement before expiry.",
-                "asset_ids": [aid],
+                "asset_ids": assets,
             })
         elif ctype in ("tsa_ends_before_cutover", "tsa_extension_required"):
             aid = conflict["asset_id"]
@@ -64,31 +66,33 @@ def build_risk_register(portfolio: Portfolio, waves_result: dict[str, Any]) -> l
             covered.add(("tsa_asset", aid))
             covered.add(("tsa", tsa_id))
             hard = ctype == "tsa_ends_before_cutover"
+            assets = [aid]
             risks.append({
-                "id": _next_id(),
+                "id": _stable_risk_id("tsa_overrun", assets, tsa_id),
                 "risk": f"{aid} misses {tsa_id} end date ({conflict['tsa_end']}).",
                 "cause": conflict.get("message", f"{aid} requires {tsa_id} past {conflict['tsa_end']}."),
                 "likelihood": "high",
                 "impact": "critical" if hard else "high",
                 "owner": "TSA / separation lead",
                 "mitigation": "Accelerate separation or negotiate a formal TSA extension / contingency.",
-                "asset_ids": [aid],
+                "asset_ids": assets,
             })
         elif ctype == "target_tsa_exit_missed":
+            assets = sorted(asset_by_id)
             risks.append({
-                "id": _next_id(),
+                "id": _stable_risk_id("target_tsa_exit_missed", assets),
                 "risk": f"Programme misses target TSA exit ({conflict['target_tsa_exit']}).",
                 "cause": conflict.get("message", "Latest planned completion exceeds target TSA exit."),
                 "likelihood": "high",
                 "impact": "critical",
                 "owner": "Programme manager",
                 "mitigation": "Parallelise critical-path build work or re-baseline target TSA exit.",
-                "asset_ids": sorted(asset_by_id),
+                "asset_ids": assets,
             })
         elif ctype == "cycle_exceeds_wave_capacity":
             members = sorted(conflict.get("assets", []))
             risks.append({
-                "id": _next_id(),
+                "id": _stable_risk_id("cycle_exceeds_wave_capacity", members),
                 "risk": "Cyclic asset group exceeds wave capacity.",
                 "cause": conflict.get("message", "Strongly connected component exceeds max_assets_per_wave."),
                 "likelihood": "high",
@@ -120,8 +124,9 @@ def build_risk_register(portfolio: Portfolio, waves_result: dict[str, Any]) -> l
             continue
         margin_days = (tsa.end_date - completion).days
         if 0 < margin_days < 45:
+            assets = [asset.id]
             risks.append({
-                "id": _next_id(),
+                "id": _stable_risk_id("tsa_near_miss", assets, asset.tsa_id),
                 "risk": (
                     f"{asset.id} has only {margin_days} days between planned completion "
                     f"({completion.isoformat()}) and {asset.tsa_id} end date ({tsa.end_date.isoformat()})."
@@ -134,24 +139,24 @@ def build_risk_register(portfolio: Portfolio, waves_result: dict[str, Any]) -> l
                     f"Advance {asset.id} cutover by at least {45 - margin_days} days or "
                     f"negotiate a contingency extension on {asset.tsa_id}."
                 ),
-                "asset_ids": [asset.id],
+                "asset_ids": assets,
             })
 
     # ── (b) Non-extendable TSA with linked assets ──────────────────────────
     for svc in portfolio.tsa_services:
         if svc.extendable:
             continue
-        linked = [a.id for a in portfolio.assets if a.tsa_id == svc.id]
+        linked = sorted(a.id for a in portfolio.assets if a.tsa_id == svc.id)
         if not linked:
             continue
         # Skip if already covered by a conflict for this TSA
         if ("tsa", svc.id) in covered:
             continue
         risks.append({
-            "id": _next_id(),
+            "id": _stable_risk_id("tsa_non_extendable", linked, svc.id),
             "risk": f"{svc.id} is non-extendable and expires on {svc.end_date.isoformat()}.",
             "cause": (
-                f"{svc.id} has no extension option; assets {', '.join(sorted(linked))} must exit "
+                f"{svc.id} has no extension option; assets {', '.join(linked)} must exit "
                 f"before {svc.end_date.isoformat()} with no fallback."
             ),
             "likelihood": "high",
@@ -161,7 +166,7 @@ def build_risk_register(portfolio: Portfolio, waves_result: dict[str, Any]) -> l
                 f"Prioritise separation of {svc.id}-linked assets; "
                 f"embed a hard-stop milestone in the programme plan."
             ),
-            "asset_ids": sorted(linked),
+            "asset_ids": linked,
         })
 
     # ── (c) Non-transferable licence on non-retired asset ──────────────────
@@ -171,21 +176,17 @@ def build_risk_register(portfolio: Portfolio, waves_result: dict[str, Any]) -> l
         # Skip if a conflict already covers this licence
         if ("licence", lic.id) in covered:
             continue
-        non_retired = [
+        non_retired = sorted(
             a.id for a in portfolio.assets
-            if a.licence_id == lic.id and a.id not in {
-                item["asset_id"] for item in [
-                    # infer retired from strategy decisions stored in waves_result
-                ]
-            }
-        ]
+            if a.licence_id == lic.id
+        )
         if not non_retired:
             continue
         risks.append({
-            "id": _next_id(),
+            "id": _stable_risk_id("licence_non_transferable", non_retired, lic.id),
             "risk": f"Licence {lic.id} ({lic.vendor} {lic.product}) is non-transferable.",
             "cause": (
-                f"Assets {', '.join(sorted(non_retired))} rely on {lic.id}, which cannot be "
+                f"Assets {', '.join(non_retired)} rely on {lic.id}, which cannot be "
                 f"transferred to Nordia; a new licence must be in place before cutover."
             ),
             "likelihood": "medium",
@@ -195,46 +196,55 @@ def build_risk_register(portfolio: Portfolio, waves_result: dict[str, Any]) -> l
                 f"Renegotiate or replace {lic.id} with a Nordia-owned licence "
                 f"before the asset cutover date. Notice period: {lic.notice_period_days} days."
             ),
-            "asset_ids": sorted(non_retired),
+            "asset_ids": non_retired,
         })
 
     if any(asset.id == "INF-03" and asset.owner.value == "shared" for asset in portfolio.assets):
-        risks.append({"id": _next_id(), "risk": "Shared identity cutover blocks users or applications.",
+        risks.append({"id": _stable_risk_id("shared_identity", ["INF-03"]),
+                      "risk": "Shared identity cutover blocks users or applications.",
                       "cause": "INF-03 is a common authentication dependency across the portfolio.",
                       "likelihood": "medium", "impact": "critical", "owner": "Identity lead",
                       "mitigation": "Build target identity in parallel, pilot users, and retain tested rollback.",
                       "asset_ids": ["INF-03"]})
     cycle_groups = cycles(build_graph(portfolio))
     if cycle_groups:
-        risks.append({"id": _next_id(), "risk": "A cyclic application cutover leaves inconsistent operations.",
+        cycle_assets = sorted({asset_id for group in cycle_groups for asset_id in group})
+        risks.append({"id": _stable_risk_id("cyclic_cutover", cycle_assets),
+                      "risk": "A cyclic application cutover leaves inconsistent operations.",
                       "cause": "Mutually dependent applications must move in the same cutover window.",
                       "likelihood": "medium", "impact": "high", "owner": "Application migration lead",
                       "mitigation": "Rehearse a joint move, agree rollback thresholds, and validate both sides together.",
-                      "asset_ids": sorted({asset_id for group in cycle_groups for asset_id in group})})
+                      "asset_ids": cycle_assets})
     sensitive_ids = sorted(asset.id for asset in portfolio.assets if asset.sensitive)
     if sensitive_ids:
-        risks.append({"id": _next_id(), "risk": "Sensitive data is exposed or corrupted during migration.",
+        risks.append({"id": _stable_risk_id("sensitive_data", sensitive_ids),
+                      "risk": "Sensitive data is exposed or corrupted during migration.",
                       "cause": "Personal or financial data crosses the separation boundary.",
                       "likelihood": "medium", "impact": "critical", "owner": "Data protection officer",
                       "mitigation": "Use encryption, least privilege, masked rehearsals, and signed reconciliation evidence.",
                       "asset_ids": sensitive_ids})
     if len(waves_result["waves"]) > 1:
-        risks.append({"id": _next_id(), "risk": "Wave capacity or dependency changes delay cutover dates.",
+        all_assets = sorted(asset_by_id)
+        risks.append({"id": _stable_risk_id("wave_capacity_delay", all_assets),
+                      "risk": "Wave capacity or dependency changes delay cutover dates.",
                       "cause": "Dependencies and specialist capacity concentrate work into sequential waves.",
                       "likelihood": "medium", "impact": "high", "owner": "Programme manager",
                       "mitigation": "Reserve specialist capacity and reforecast TSA needs after each wave.",
-                      "asset_ids": sorted(asset_by_id)})
+                      "asset_ids": all_assets})
     functions: dict[str, list[str]] = {}
     for asset in portfolio.assets:
         if asset.function:
             functions.setdefault(asset.function, []).append(asset.id)
     duplicates = sorted(asset_id for members in functions.values() if len(members) > 1 for asset_id in members)
     if duplicates:
-        risks.append({"id": _next_id(), "risk": "CRM consolidation loses customer history or interrupts support.",
+        risks.append({"id": _stable_risk_id("duplicate_crm", duplicates),
+                      "risk": "CRM consolidation loses customer history or interrupts support.",
                       "cause": "Two systems provide a duplicate CRM function and contain separate records.",
                       "likelihood": "medium", "impact": "medium", "owner": "Commercial systems lead",
                       "mitigation": "Map and deduplicate records, confirm the destination, and get sign-off before retirement.",
                       "asset_ids": duplicates})
+
+    risks.sort(key=lambda item: (item["id"], tuple(item["asset_ids"]), item["risk"]))
     return risks
 
 
