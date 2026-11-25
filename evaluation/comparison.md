@@ -3,7 +3,7 @@
 | Metric | Result |
 |---|---:|
 | dependency violations | 0 |
-| strategy match percent | 83.33 |
+| strategy match percent | 73.33 |
 | wave exact match percent | 33.33 |
 | wave order similarity percent | 71.43 |
 | risk coverage percent | 60.0 |
@@ -15,8 +15,11 @@
 
 ## Strategy mismatches
 
+- `INF-01`: expected retain_under_tsa, got retain_under_tsa
+- `INF-02`: expected retain_under_tsa, got retain_under_tsa
 - `INF-04`: expected migrate, got clone
+- `DB-05`: expected retain_under_tsa, got retain_under_tsa
+- `APP-01`: expected retain_under_tsa, got retain_under_tsa
+- `APP-10`: expected retain_under_tsa, got retain_under_tsa
 - `APP-13`: expected migrate, got clone
-- `APP-14`: expected rebuild, got retain_under_tsa
 - `APP-18`: expected migrate, got clone
-- `APP-19`: expected rebuild, got retain_under_tsa

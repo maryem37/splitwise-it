@@ -1,7 +1,7 @@
 {
   "summary": {
     "dependency_violations": 0,
-    "strategy_match_percent": 83.33,
+    "strategy_match_percent": 73.33,
     "wave_exact_match_percent": 33.33,
     "wave_order_similarity_percent": 71.43,
     "risk_coverage_percent": 60.0,
@@ -16,181 +16,355 @@
       "asset_id": "INF-01",
       "expected_strategy": "retain_under_tsa",
       "actual_strategy": "retain_under_tsa",
-      "match": true
+      "exit_strategy": "migrate",
+      "compared_strategy": "migrate",
+      "match": false
     },
     {
       "asset_id": "INF-02",
       "expected_strategy": "retain_under_tsa",
       "actual_strategy": "retain_under_tsa",
-      "match": true
+      "exit_strategy": "migrate",
+      "compared_strategy": "migrate",
+      "match": false
     },
     {
       "asset_id": "INF-03",
       "expected_strategy": "rebuild",
       "actual_strategy": "rebuild",
+      "exit_strategy": null,
+      "compared_strategy": "rebuild",
       "match": true
     },
     {
       "asset_id": "INF-04",
       "expected_strategy": "migrate",
       "actual_strategy": "clone",
+      "exit_strategy": null,
+      "compared_strategy": "clone",
       "match": false
     },
     {
       "asset_id": "INF-05",
       "expected_strategy": "retire",
       "actual_strategy": "retire",
+      "exit_strategy": null,
+      "compared_strategy": "retire",
       "match": true
     },
     {
       "asset_id": "DB-01",
       "expected_strategy": "rebuild",
       "actual_strategy": "rebuild",
+      "exit_strategy": null,
+      "compared_strategy": "rebuild",
       "match": true
     },
     {
       "asset_id": "DB-02",
       "expected_strategy": "migrate",
       "actual_strategy": "migrate",
+      "exit_strategy": null,
+      "compared_strategy": "migrate",
       "match": true
     },
     {
       "asset_id": "DB-03",
       "expected_strategy": "migrate",
       "actual_strategy": "migrate",
+      "exit_strategy": null,
+      "compared_strategy": "migrate",
       "match": true
     },
     {
       "asset_id": "DB-04",
       "expected_strategy": "migrate",
       "actual_strategy": "migrate",
+      "exit_strategy": null,
+      "compared_strategy": "migrate",
       "match": true
     },
     {
       "asset_id": "DB-05",
       "expected_strategy": "retain_under_tsa",
       "actual_strategy": "retain_under_tsa",
-      "match": true
+      "exit_strategy": "rebuild",
+      "compared_strategy": "rebuild",
+      "match": false
     },
     {
       "asset_id": "DB-06",
       "expected_strategy": "retire",
       "actual_strategy": "retire",
+      "exit_strategy": null,
+      "compared_strategy": "retire",
       "match": true
     },
     {
       "asset_id": "APP-01",
       "expected_strategy": "retain_under_tsa",
       "actual_strategy": "retain_under_tsa",
-      "match": true
+      "exit_strategy": "rebuild",
+      "compared_strategy": "rebuild",
+      "match": false
     },
     {
       "asset_id": "APP-02",
       "expected_strategy": "migrate",
       "actual_strategy": "migrate",
+      "exit_strategy": null,
+      "compared_strategy": "migrate",
       "match": true
     },
     {
       "asset_id": "APP-03",
       "expected_strategy": "migrate",
       "actual_strategy": "migrate",
+      "exit_strategy": null,
+      "compared_strategy": "migrate",
       "match": true
     },
     {
       "asset_id": "APP-04",
       "expected_strategy": "migrate",
       "actual_strategy": "migrate",
+      "exit_strategy": null,
+      "compared_strategy": "migrate",
       "match": true
     },
     {
       "asset_id": "APP-05",
       "expected_strategy": "retire",
       "actual_strategy": "retire",
+      "exit_strategy": null,
+      "compared_strategy": "retire",
       "match": true
     },
     {
       "asset_id": "APP-06",
       "expected_strategy": "migrate",
       "actual_strategy": "migrate",
+      "exit_strategy": null,
+      "compared_strategy": "migrate",
       "match": true
     },
     {
       "asset_id": "APP-07",
       "expected_strategy": "migrate",
       "actual_strategy": "migrate",
+      "exit_strategy": null,
+      "compared_strategy": "migrate",
       "match": true
     },
     {
       "asset_id": "APP-08",
       "expected_strategy": "rebuild",
       "actual_strategy": "rebuild",
+      "exit_strategy": null,
+      "compared_strategy": "rebuild",
       "match": true
     },
     {
       "asset_id": "APP-09",
       "expected_strategy": "rebuild",
       "actual_strategy": "rebuild",
+      "exit_strategy": null,
+      "compared_strategy": "rebuild",
       "match": true
     },
     {
       "asset_id": "APP-10",
       "expected_strategy": "retain_under_tsa",
       "actual_strategy": "retain_under_tsa",
-      "match": true
+      "exit_strategy": "migrate",
+      "compared_strategy": "migrate",
+      "match": false
     },
     {
       "asset_id": "APP-11",
       "expected_strategy": "migrate",
       "actual_strategy": "migrate",
+      "exit_strategy": null,
+      "compared_strategy": "migrate",
       "match": true
     },
     {
       "asset_id": "APP-12",
       "expected_strategy": "retire",
       "actual_strategy": "retire",
+      "exit_strategy": null,
+      "compared_strategy": "retire",
       "match": true
     },
     {
       "asset_id": "APP-13",
       "expected_strategy": "migrate",
       "actual_strategy": "clone",
+      "exit_strategy": null,
+      "compared_strategy": "clone",
       "match": false
     },
     {
       "asset_id": "APP-14",
       "expected_strategy": "rebuild",
       "actual_strategy": "retain_under_tsa",
-      "match": false
+      "exit_strategy": "rebuild",
+      "compared_strategy": "rebuild",
+      "match": true
     },
     {
       "asset_id": "APP-15",
       "expected_strategy": "migrate",
       "actual_strategy": "migrate",
+      "exit_strategy": null,
+      "compared_strategy": "migrate",
       "match": true
     },
     {
       "asset_id": "APP-16",
       "expected_strategy": "migrate",
       "actual_strategy": "migrate",
+      "exit_strategy": null,
+      "compared_strategy": "migrate",
       "match": true
     },
     {
       "asset_id": "APP-17",
       "expected_strategy": "migrate",
       "actual_strategy": "migrate",
+      "exit_strategy": null,
+      "compared_strategy": "migrate",
       "match": true
     },
     {
       "asset_id": "APP-18",
       "expected_strategy": "migrate",
       "actual_strategy": "clone",
+      "exit_strategy": null,
+      "compared_strategy": "clone",
       "match": false
     },
     {
       "asset_id": "APP-19",
       "expected_strategy": "rebuild",
       "actual_strategy": "retain_under_tsa",
-      "match": false
+      "exit_strategy": "rebuild",
+      "compared_strategy": "rebuild",
+      "match": true
+    }
+  ],
+  "risk_explanations": [
+    {
+      "expert_id": "R-01",
+      "expert_risk": "ERP and database separation misses TSA-01 end date",
+      "matched": true,
+      "generated_id": "R-579125",
+      "shared_themes": [
+        "tsa",
+        "tsa-01"
+      ],
+      "shared_assets": [],
+      "reason": "matched"
+    },
+    {
+      "expert_id": "R-02",
+      "expert_risk": "Payment settlements stop when LIC-04 expires",
+      "matched": true,
+      "generated_id": "R-451488",
+      "shared_themes": [
+        "lic-04",
+        "licence"
+      ],
+      "shared_assets": [],
+      "reason": "matched"
+    },
+    {
+      "expert_id": "R-03",
+      "expert_risk": "Inventory and warehouse cutover leaves inconsistent stock",
+      "matched": false,
+      "generated_id": null,
+      "shared_themes": [],
+      "shared_assets": [],
+      "reason": "Below threshold (needs asset+>=1 theme or >=2 themes); closest R-375184 shares themes=[] and assets=['APP-06', 'APP-07'] (expert themes=['inventory', 'warehouse'], expert assets=['APP-06', 'APP-07'])."
+    },
+    {
+      "expert_id": "R-04",
+      "expert_risk": "Shared identity outage blocks user and service access",
+      "matched": true,
+      "generated_id": "R-667917",
+      "shared_themes": [
+        "identity",
+        "inf-03"
+      ],
+      "shared_assets": [
+        "INF-03"
+      ],
+      "reason": "matched"
+    },
+    {
+      "expert_id": "R-05",
+      "expert_risk": "Sensitive customer or financial data is disclosed or corrupted",
+      "matched": true,
+      "generated_id": "R-415337",
+      "shared_themes": [
+        "data",
+        "sensitive"
+      ],
+      "shared_assets": [],
+      "reason": "matched"
+    },
+    {
+      "expert_id": "R-06",
+      "expert_risk": "Payroll is unavailable at TSA-02 expiry",
+      "matched": true,
+      "generated_id": "R-140065",
+      "shared_themes": [
+        "hr",
+        "tsa",
+        "tsa-02"
+      ],
+      "shared_assets": [],
+      "reason": "matched"
+    },
+    {
+      "expert_id": "R-07",
+      "expert_risk": "Business cutovers exceed wave capacity or freeze windows",
+      "matched": false,
+      "generated_id": null,
+      "shared_themes": [],
+      "shared_assets": [],
+      "reason": "Below threshold (needs asset+>=1 theme or >=2 themes); closest R-853716 shares themes=['capacity'] and assets=[] (expert themes=['capacity', 'freeze'], expert assets=[])."
+    },
+    {
+      "expert_id": "R-08",
+      "expert_risk": "CRM consolidation loses sales or customer history",
+      "matched": true,
+      "generated_id": "R-772429",
+      "shared_themes": [
+        "crm"
+      ],
+      "shared_assets": [
+        "APP-05"
+      ],
+      "reason": "matched"
+    },
+    {
+      "expert_id": "R-09",
+      "expert_risk": "TSA extensions increase cost and delay independence",
+      "matched": false,
+      "generated_id": null,
+      "shared_themes": [],
+      "shared_assets": [],
+      "reason": "Below threshold (needs asset+>=1 theme or >=2 themes); closest R-140065 shares themes=['tsa'] and assets=[] (expert themes=['data', 'tsa'], expert assets=[])."
+    },
+    {
+      "expert_id": "R-10",
+      "expert_risk": "Supplier or licence terms prevent timely transfer",
+      "matched": false,
+      "generated_id": null,
+      "shared_themes": [],
+      "shared_assets": [],
+      "reason": "Below threshold (needs asset+>=1 theme or >=2 themes); closest R-079612 shares themes=['licence'] and assets=[] (expert themes=['licence'], expert assets=[])."
     }
   ],
   "dependency_violations": []

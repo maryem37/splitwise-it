@@ -1,4 +1,4 @@
-﻿# Carve-out Copilot — System Architecture
+# Carve-out Copilot — System Architecture
 
 > **Core design principle:** **Code decides, AI explains.**  
 > All graph analysis, strategy selection, wave sequencing, date calculation, conflict detection, and TSA cost estimation are 100% deterministic. Optional LLM generation (Groq) only wraps pre-computed outputs with human-readable narrative, validated by strict JSON schemas and guardrails.
