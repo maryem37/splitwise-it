@@ -6,7 +6,7 @@
 | strategy match percent | 83.33 |
 | wave exact match percent | 23.33 |
 | wave order similarity percent | 70.33 |
-| risk coverage percent | 80.0 |
+| risk coverage percent | 70.0 |
 | hallucination count | 0 |
 | hallucination assets | [] |
 | cycles grouped | True |

@@ -4,7 +4,7 @@
     "strategy_match_percent": 83.33,
     "wave_exact_match_percent": 23.33,
     "wave_order_similarity_percent": 70.33,
-    "risk_coverage_percent": 80.0,
+    "risk_coverage_percent": 70.0,
     "hallucination_count": 0,
     "hallucination_assets": [],
     "cycles_grouped": true,
