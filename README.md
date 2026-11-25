@@ -21,8 +21,9 @@
 8. [Data model](#8--data-model)
 9. [Configuration](#9--configuration)
 10. [AI narrative generation (optional)](#10--ai-narrative-generation-optional)
-11. [Running tests](#11--running-tests)
-12. [Contributing / pushing changes](#12--contributing--pushing-changes)
+11. [Neo4j & Cypher graph analytics](#11--neo4j--cypher-graph-analytics)
+12. [Running tests](#12--running-tests)
+13. [Contributing / pushing changes](#13--contributing--pushing-changes)
 
 ---
 
@@ -95,6 +96,8 @@ d:\graph\
 │   ├── strategy.py              ← Rules-based strategy assignment per asset
 │   ├── sequencing.py            ← Wave computation + conflict detection
 │   ├── metrics.py               ← TSA cost, KPI aggregation
+│   ├── neo4j_store.py           ← Neo4j loader, query runner & Cypher exporter
+│   ├── cypher_queries.py        ← 12 named Cypher analytics queries
 │   ├── cli.py                   ← CLI entry point (carveout <command>)
 │   └── generation/
 │       ├── client.py            ← Groq API client (AI mode)
@@ -110,6 +113,7 @@ d:\graph\
 │   ├── metrics.json             ← KPIs and TSA cost breakdown
 │   ├── strategy_assessment.json ← Per-asset strategy decisions
 │   ├── dependency_graph.json    ← NetworkX node-link JSON
+│   ├── graph.cypher             ← Standalone Neo4j / Cypher import script
 │   └── runbooks/wave-0*.md      ← Cutover runbooks per wave
 ├── evaluation/                  ← Pipeline vs expert comparison
 ├── tests/                       ← pytest test suite
@@ -147,6 +151,11 @@ py -m pip install -e ".[ai]"
 copy .env.example .env        # then edit .env and set GROQ_API_KEY=...
 ```
 
+**Optional — Neo4j graph database integration**:
+```powershell
+py -m pip install -e ".[neo4j]"
+```
+
 ---
 
 ## 5 · Pipeline commands
@@ -169,6 +178,12 @@ carveout evaluate     # Compare pipeline output vs expert plan
 # ── Run everything at once ───────────────────────────────────────
 carveout run-all                # deterministic only
 carveout run-all --ai           # + AI narrative (requires GROQ_API_KEY)
+
+# ── Neo4j & Cypher ───────────────────────────────────────────────
+carveout neo4j-export           # Export standalone output/graph.cypher (no DB needed)
+carveout neo4j-load             # Load portfolio + waves into Neo4j
+carveout neo4j-query --query transitive_impact --asset INF-01
+carveout cypher-list            # Print all 12 named Cypher queries
 ```
 
 **All outputs are written to `output/`** (overwritten on each run).
@@ -336,7 +351,51 @@ The AI **never changes the data** — it only narrates what the algorithm alread
 
 ---
 
-## 11 · Running tests
+## 11 · Neo4j & Cypher graph analytics
+
+The project includes a full **Neo4j** integration (`src/carveout/neo4j_store.py`) and a catalogue of **12 named Cypher queries** (`src/carveout/cypher_queries.py`).
+
+### Graph schema in Neo4j
+
+- **Nodes:** `:Asset` (enriched with `wave`, `strategy`, `planned_completion`), `:TSAService`, `:Licence`
+- **Relationships:** `:CALLS`, `:READS_FROM`, `:WRITES_TO`, `:HOSTED_ON`, `:AUTHENTICATES_VIA`, `:CONNECTS_VIA`, `:COVERED_BY_TSA`, `:LICENSED_UNDER`
+
+### Export & run
+
+```powershell
+# 1 — Export standalone Cypher script (no running Neo4j required)
+carveout neo4j-export           # writes output/graph.cypher
+
+# 2 — Load directly into a running Neo4j instance
+carveout neo4j-load --neo4j-uri bolt://localhost:7687 --neo4j-user neo4j --neo4j-password secret
+
+# 3 — Run any of the 12 named analytics queries
+carveout neo4j-query --query transitive_impact --asset INF-01
+carveout neo4j-query --query tsa_conflicts
+carveout neo4j-query --query critical_path
+carveout neo4j-query --query cycles
+```
+
+### Included Cypher queries
+
+| Query name | Purpose |
+|---|---|
+| `transitive_deps` | All assets that a given asset depends on (directly or transitively) |
+| `transitive_impact` | All assets impacted if a given asset slips |
+| `tsa_conflicts` | Assets completing after their TSA end date |
+| `licence_conflicts` | Assets whose licence expires before cutover |
+| `critical_path` | Longest dependency chain determining the end date |
+| `cycles` | Circular dependency pairs (`APP-06` ↔ `APP-07`) |
+| `shared_blockers` | Shared parent assets blocking the most downstream systems |
+| `assets_by_wave` | Assets in a specific wave with strategy and completion date |
+| `tsa_cost_summary` | Per-TSA latest cutover and asset count |
+| `sensitive_assets` | Assets holding personal/financial data (GDPR) |
+| `wave_predecessors` | Waves that must complete before a given wave |
+| `full_graph` | Full node-and-edge export |
+
+---
+
+## 12 · Running tests
 
 ```powershell
 .venv\Scripts\Activate.ps1
@@ -353,7 +412,7 @@ Test modules:
 
 ---
 
-## 12 · Contributing / pushing changes
+## 13 · Contributing / pushing changes
 
 ```powershell
 # Stage everything (new files + modifications)
