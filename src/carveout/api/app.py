@@ -99,6 +99,42 @@ def create_app(db_path: str | None = None) -> FastAPI:
     def serve_ui() -> HTMLResponse:
         return HTMLResponse(content=WEB_UI_HTML)
 
+    @app.get("/dashboard", response_class=HTMLResponse, include_in_schema=False)
+    def serve_embedded_dashboard(portfolio_id: str = Query(default="portfolio_v1")) -> HTMLResponse:
+        """Serve the self-contained visual dashboard (Graph, Gantt, Risks, TSA Costs)."""
+        from pathlib import Path
+        import tempfile
+        from carveout.dashboard import export_dashboard
+        from carveout.generation.documents import build_risk_register
+
+        if portfolio_id == "portfolio_v1":
+            static_dash = Path("output/dashboard.html")
+            if static_dash.exists():
+                return HTMLResponse(content=static_dash.read_text(encoding="utf-8"))
+
+        path = resolve_portfolio_path(portfolio_id)
+        p = load_portfolio(path)
+        strategies = assess_strategies(p, RULES_PATH)
+        seq = compute_waves(p, CONSTRAINTS_PATH, strategies=strategies)
+        metrics = calculate_metrics(p, seq)
+        risks = build_risk_register(p, seq, strategies)
+        with tempfile.TemporaryDirectory() as tmpdir:
+            out_path = Path(tmpdir) / "dashboard.html"
+            export_dashboard(p, strategies, seq, metrics, risks, out_path)
+            return HTMLResponse(content=out_path.read_text(encoding="utf-8"))
+
+    @app.get("/graph", response_class=HTMLResponse, include_in_schema=False)
+    def serve_embedded_graph() -> HTMLResponse:
+        """Serve the force-directed dependency graph if generated."""
+        from pathlib import Path
+
+        graph_path = Path("output/graph.html")
+        if graph_path.exists():
+            return HTMLResponse(content=graph_path.read_text(encoding="utf-8"))
+        return HTMLResponse(
+            content="<html><body style='font-family:sans-serif;padding:24px'><h2>Graph not generated yet</h2><p>Run <code>carveout run-all</code> first to generate <code>output/graph.html</code>.</p></body></html>"
+        )
+
     @app.get("/api/health", response_model=HealthResponse, tags=["System"])
     def health_check() -> HealthResponse:
         """Liveness probe: confirms the API process is running."""
