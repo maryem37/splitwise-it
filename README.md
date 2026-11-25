@@ -28,6 +28,23 @@ Carve-out Copilot automates separation planning and turns complex dependency gra
 
 ---
 
+## Tech Stack & Tools Used
+
+| Category | Tools & Libraries | Role in Project |
+|---|---|---|
+| **Language & Runtime** | Python 3.11+, Setuptools | Core application runtime and packaging (`pyproject.toml`) |
+| **Graph & Planning** | `NetworkX` (>=3.2), `PyYAML` (>=6.0), `Pydantic` (>=2.5) | Dependency graph, Tarjan SCC cycle detection, topological wave sequencing, YAML schema validation |
+| **Constraint Optimization** | `Google OR-Tools` CP-SAT (>=9.8) | Integer programming solver minimizing TSA cost & duration under dependency/capacity constraints |
+| **Multi-Agent AI** | `LangGraph` (>=0.2.0), `LangChain Core` (>=0.3.0), `langgraph-checkpoint-sqlite` (>=3.0.0) | 7-agent orchestration, bounded correction loops, and `interrupt()` Human-in-the-Loop workflows |
+| **LLM Integration (Optional)** | `Groq` API (`groq>=0.11`, `langchain-groq>=0.2.0`), `python-dotenv` | Optional narrative synthesis for runbooks and executive summaries |
+| **Web Backend & API** | `FastAPI` (>=0.110), `Uvicorn` (>=0.27), `HTTPX` (>=0.27) | REST API, OpenAPI/Swagger docs, lifespan health/readiness probes, and unified 6-tab Web UI |
+| **Persistence & Security** | `SQLite` (WAL mode), `hmac.compare_digest` | Cross-process workflow checkpointing, constant-time approval token verification, path-traversal protection |
+| **Reporting & Visualization** | `Jinja2` (>=3.1), HTML5/CSS/JS, SVG Charts, `vis-network` | Offline interactive dashboard, Gantt calendar, force-directed graph, Markdown/JSON reports & cutover runbooks |
+| **Integrations (Optional)** | `MCP` (`mcp>=1.9,<2`), `Neo4j` driver (`neo4j>=5.0`) | Read-only Model Context Protocol server (`stdio`) and Neo4j/Cypher graph analytics (12 named queries) |
+| **DevOps & Testing** | `Docker`, `Docker Compose`, `pytest` (>=8.0) | Multi-stage non-root containerization with persistent volumes and 102 automated tests |
+
+---
+
 ## Table of Contents
 
 1. [Input → Engine → Output](#1--input--engine--output)
