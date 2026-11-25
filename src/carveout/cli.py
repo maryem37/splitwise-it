@@ -99,7 +99,7 @@ def run(args: argparse.Namespace) -> int:
             generate_documents(portfolio, decisions, sequencing, metrics, output_dir, use_ai=args.ai)
         if args.command in ("evaluate", "run-all"):
             risks = build_risk_register(portfolio, sequencing)
-            evaluate_results(portfolio, expert_path, decisions, sequencing, risks, ROOT / "evaluation")
+            evaluate_results(portfolio, expert_path, decisions, sequencing, risks, ROOT / "evaluation", docs_dir=output_dir)
             robustness_portfolio = load_portfolio(robustness_path)
             robustness_report = validate_portfolio(robustness_portfolio)
             if not robustness_report["valid"]:

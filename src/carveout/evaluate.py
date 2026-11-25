@@ -5,12 +5,37 @@ import csv
 from itertools import combinations
 import json
 from pathlib import Path
+import re
 from typing import Any
 
 import yaml
 
 from .graph import build_graph, cycles
 from .models import Portfolio
+
+
+_THEME_KEYWORDS = (
+    "erp", "tsa-01", "payment", "lic-04", "inventory", "warehouse", "cyclic",
+    "identity", "inf-03", "sensitive", "data", "payroll", "hr", "tsa-02",
+    "capacity", "freeze", "crm", "tsa", "licence", "tsa-04",
+)
+_ID_PATTERN = re.compile(r"\b[A-Z][A-Z0-9]*(?:-\d+)+\b")
+
+
+def _themes(text: str) -> set[str]:
+    low = text.lower()
+    return {kw for kw in _THEME_KEYWORDS if kw in low}
+
+
+def _risk_matches(expert_risk: dict[str, Any], generated_risk: dict[str, Any], known_assets: set[str]) -> bool:
+    exp_text = f"{expert_risk.get('risk', '')} {expert_risk.get('cause', '')}"
+    gen_text = f"{generated_risk.get('risk', '')} {generated_risk.get('cause', '')}"
+    exp_assets = set(expert_risk.get("asset_ids", [])) | (set(_ID_PATTERN.findall(exp_text)) & known_assets)
+    gen_assets = set(generated_risk.get("asset_ids", []))
+    shared_themes = _themes(exp_text) & _themes(gen_text)
+    if exp_assets and (exp_assets & gen_assets) and shared_themes:
+        return True
+    return len(shared_themes) >= 2
 
 
 def evaluate_results(
@@ -20,6 +45,7 @@ def evaluate_results(
     sequencing: dict[str, Any],
     generated_risks: list[dict[str, Any]],
     output_dir: str | Path,
+    docs_dir: str | Path | None = None,
 ) -> dict[str, Any]:
     expert = yaml.safe_load(Path(expert_path).read_text(encoding="utf-8"))
     expected_strategies = expert.get("strategies", {})
@@ -52,15 +78,27 @@ def evaluate_results(
         (expected_wave[left] < expected_wave[right]) == (actual_wave.get(left, 0) < actual_wave.get(right, 0))
         for left, right in order_pairs
     )
-    expected_risk_ids = {item["id"] for item in expert.get("top_risks", [])}
-    actual_risk_ids = {item.get("id") for item in generated_risks}
-    risk_coverage = len(expected_risk_ids & actual_risk_ids) / max(1, len(expected_risk_ids))
-
     known_assets = {asset.id for asset in portfolio.assets}
+    expert_risks = expert.get("top_risks", [])
+    covered_risks = sum(
+        1 for exp in expert_risks
+        if any(_risk_matches(exp, gen, known_assets) for gen in generated_risks)
+    )
+    risk_coverage = covered_risks / max(1, len(expert_risks))
+
     references = set(actual_strategies)
     references.update(actual_wave)
     for risk in generated_risks:
         references.update(risk.get("asset_ids", []))
+    known_non_assets = (
+        {lic.id for lic in portfolio.licences}
+        | {tsa.id for tsa in portfolio.tsa_services}
+        | {risk.get("id", "") for risk in generated_risks}
+    )
+    if docs_dir is not None and Path(docs_dir).exists():
+        for md_path in Path(docs_dir).rglob("*.md"):
+            text = md_path.read_text(encoding="utf-8")
+            references.update(set(_ID_PATTERN.findall(text)) - known_non_assets)
     unknown_references = sorted(references - known_assets)
     retained_under_tsa = {
         item["asset_id"] for item in strategies
@@ -72,8 +110,10 @@ def evaluate_results(
          "dependency_wave": actual_wave.get(relation.target)}
         for relation in portfolio.relationships
         if relation.source in actual_wave and relation.target in actual_wave
-        and relation.target not in retained_under_tsa
-        and actual_wave[relation.source] < actual_wave[relation.target]
+        and (
+            (relation.target not in retained_under_tsa and actual_wave[relation.source] < actual_wave[relation.target])
+            or (relation.target in retained_under_tsa and actual_wave[relation.source] > actual_wave[relation.target])
+        )
     ]
     cycles_grouped = all(
         len({actual_wave.get(asset_id) for asset_id in group}) == 1

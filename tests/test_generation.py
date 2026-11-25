@@ -6,7 +6,7 @@ from types import ModuleType, SimpleNamespace
 
 import pytest
 
-from carveout.evaluate import evaluate_robustness
+from carveout.evaluate import evaluate_results, evaluate_robustness
 from carveout.generation.documents import build_risk_register, generate_documents
 from carveout.generation.client import generate_narrative
 from carveout.generation import client as groq_client
@@ -199,3 +199,28 @@ def test_guardrails_reject_ungrounded_claims_and_invented_dates():
         has_retired_assets=False,
         is_final_wave=False,
     )
+
+
+def test_evaluate_matches_risks_by_theme_and_scans_markdown_hallucinations(tmp_path):
+    portfolio = load_portfolio(ROOT / "data/portfolio_v1.yaml")
+    strategies = assess_strategies(portfolio, ROOT / "config/strategy_rules.yaml")
+    sequencing = compute_waves(portfolio, ROOT / "config/constraints.yaml", strategies)
+    # Give generated risks completely different IDs (X-99) to prove matching is not by ID
+    risks = [{
+        "id": "X-99",
+        "risk": "ERP separation misses TSA-01 end date.",
+        "cause": "Shared ERP and data.",
+        "asset_ids": ["APP-01", "DB-01"],
+    }]
+    docs_dir = tmp_path / "docs"
+    docs_dir.mkdir()
+    (docs_dir / "separation_plan.md").write_text("Mentions ghost asset APP-999 and TSA-01.", encoding="utf-8")
+
+    summary = evaluate_results(
+        portfolio, ROOT / "data/expert_plan_v1.yaml", strategies, sequencing, risks,
+        tmp_path / "eval", docs_dir=docs_dir,
+    )
+
+    assert summary["risk_coverage_percent"] > 0
+    assert summary["hallucination_count"] == 1
+    assert summary["hallucination_assets"] == ["APP-999"]
