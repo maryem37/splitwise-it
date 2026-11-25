@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import operator
-from typing import Annotated, Any, TypedDict
+from typing import Annotated, Any, Literal, TypedDict
 from pydantic import BaseModel, Field
 
 
@@ -46,6 +46,55 @@ class AgentMessage(BaseModel):
     timestamp: str = ""
 
 
+class EvaluationFinding(BaseModel):
+    finding_id: str
+    category: Literal["evidence", "planning", "financial", "execution"]
+    severity: Literal["hard", "warning", "existing_conflict", "info"]
+    description: str
+    evidence: str = ""
+    affected_assets: list[str] = Field(default_factory=list)
+    recommended_action: str = ""
+
+
+class EvaluationReport(BaseModel):
+    evaluation_id: str
+    status: Literal["PASS", "PASS_WITH_WARNINGS", "FAIL", "INCOMPLETE"]
+    overall_score: float = Field(ge=0.0, le=1.0)
+    evidence_coverage: float = Field(ge=0.0, le=1.0)
+    planning_validity: bool
+    financial_validity: bool
+    execution_validity: bool
+    hard_violations: list[dict[str, Any]] = Field(default_factory=list)
+    warnings: list[dict[str, Any]] = Field(default_factory=list)
+    existing_conflicts: list[dict[str, Any]] = Field(default_factory=list)
+    missing_evidence: list[str] = Field(default_factory=list)
+    checked_constraints: list[str] = Field(default_factory=list)
+    evaluation_summary: str = ""
+
+
+class CorrectionRequest(BaseModel):
+    target_agent: Literal["dependency_agent", "risk_agent", "optimization_agent"]
+    action: str
+    parameters: dict[str, Any] = Field(default_factory=dict)
+    reason: str
+    signature: str
+
+
+class CriticDecision(BaseModel):
+    decision: Literal["ACCEPTED", "CORRECTION_REQUIRED", "HUMAN_REVIEW_REQUIRED", "BLOCKED"]
+    rationale: str
+    findings: list[EvaluationFinding] = Field(default_factory=list)
+    correction_request: CorrectionRequest | None = None
+    requires_human_approval: bool = False
+
+
+class HumanApprovalDecision(BaseModel):
+    action: Literal["APPROVE", "REJECT", "REQUEST_REVISION"]
+    reviewer: str = "human_reviewer"
+    comment: str = ""
+    timestamp: str = ""
+
+
 def _merge_dict(left: dict[str, Any], right: dict[str, Any]) -> dict[str, Any]:
     if not left:
         return right or {}
@@ -56,7 +105,7 @@ def _merge_dict(left: dict[str, Any], right: dict[str, Any]) -> dict[str, Any]:
     return res
 
 
-class CarveoutState(TypedDict):
+class CarveoutState(TypedDict, total=False):
     # Inputs
     user_request: str
     portfolio_path: str
@@ -75,6 +124,20 @@ class CarveoutState(TypedDict):
     optimization_results: Annotated[dict[str, Any], _merge_dict]
     evaluation_results: Annotated[dict[str, Any], _merge_dict]
 
+    # Phase 3: Evaluation, Critic, Correction Loop & Human-in-the-Loop
+    evaluation_report: Annotated[dict[str, Any], _merge_dict]
+    critic_decision: Annotated[dict[str, Any], _merge_dict]
+    correction_attempts: int
+    max_correction_attempts: int
+    correction_history: Annotated[list[dict[str, Any]], operator.add]
+    pending_correction: Annotated[dict[str, Any], _merge_dict]
+    human_review_required: bool
+    human_approval: Annotated[dict[str, Any], _merge_dict]
+    approval_history: Annotated[list[dict[str, Any]], operator.add]
+    workflow_status: str
+    execution_trace: Annotated[list[str], operator.add]
+    enable_human_interrupt: bool
+
     # Shared Context / Logs
     agent_messages: Annotated[list[dict[str, Any]], operator.add]
     tool_results: Annotated[list[dict[str, Any]], operator.add]
@@ -83,3 +146,7 @@ class CarveoutState(TypedDict):
 
     # Final Output
     final_response: str
+
+    # Observability & Metrics (Phase 3.2)
+    metrics: Annotated[dict[str, Any], _merge_dict]
+    node_timings: Annotated[list[dict[str, Any]], operator.add]

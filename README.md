@@ -263,6 +263,7 @@ carveout cypher-list            # Print all 12 named Cypher queries
 
 # ── Agentic Investigation & CP-SAT Optimization ──────────────────
 carveout agent "What happens if we delay APP-06 by three months?"
+carveout agent --human-review --thread-id review-01 "Optimize schedule to minimize cost"
 carveout optimize --scenario baseline
 carveout optimize --scenario app_06_delay --delay-weeks 12
 carveout optimize --scenario minimize_cost --objective minimize_cost
@@ -556,6 +557,17 @@ Test modules:
 | `tests/test_tools.py` | Deterministic tool wrappers (graph, planning, risk, Neo4j) |
 | `tests/test_agents.py` | LangGraph Supervisor, Dependency, Risk, Strategy & Optimization agents |
 | `tests/test_optimization.py` | OR-Tools CP-SAT solver, SCC coupling, scenarios & immutability |
+| `tests/test_evaluation.py` | Evaluation Agent, evidence/planning/financial checks & 10 benchmarks |
+| `tests/test_critic.py` | Critic Agent deterministic decision policy |
+| `tests/test_correction_loop.py` | Bounded correction loop & duplicate-signature prevention |
+| `tests/test_human_approval.py` | LangGraph `interrupt()`, `MemorySaver` checkpointing & `thread_id` resume |
+| `tests/test_checkpoint_persistence.py` | SQLite checkpointer schema, session isolation, and persistence |
+| `tests/test_cross_process_resume.py` | Cross-process workflow interruption and resumption via CLI |
+| `tests/test_workflow_reliability.py` | Duplicate correction prevention, invalid payload safety, YAML immutability |
+| `tests/test_observability.py` | Structured logging, thread ID propagation, and execution metrics |
+| `tests/test_operational_reliability.py` | SQLite connection cleanup, WAL mode, path validation, CLI error handling |
+| `tests/test_decision_intelligence.py` | Decision provenance model, explainable wave planning, baseline vs opt comparison |
+| `tests/test_scenarios_and_reporting.py` | Isolated what-if scenarios, YAML immutability, Markdown/JSON decision reports |
 
 ---
 
@@ -570,7 +582,42 @@ Carve-out Copilot includes an optional multi-agent orchestration layer (`[agents
 - **Optimization Agent (`src/carveout/agents/optimization_agent.py`) & CP-SAT Engine (`src/carveout/optimization/`):** Solves discrete wave assignment (`wave[u] in [1..max_waves]`) with Google OR-Tools CP-SAT subject to:
   - **Hard constraints:** Dependency ordering (including reversed `retain_under_tsa` exit order), SCC co-location (e.g. `APP-06` ↔ `APP-07` coupled in the same wave), wave capacity (`max_assets_per_wave`), and scenario delay floors.
   - **Objectives:** `minimize_cost` (prioritizes earlier exit of TSA-linked assets), `minimize_duration` (minimizes total waves), and `balanced`.
-  - **Known limitations:** Freeze periods from `constraints.yaml` are enforced by `sequencing.py` but not yet modeled inside the CP-SAT wave calendar; Windows Smart App Control may block `pandas` C-extensions, so `solver.py` includes a lightweight fallback shim when importing `cp_model`.
+  - **Known limitations:** Freeze periods from `constraints.yaml` are enforced by `sequencing.py` and post-solve calendar mapping, not yet modeled inside the CP-SAT wave calendar; Windows Smart App Control may block `pandas` C-extensions, so `solver.py` includes a scoped fallback shim when importing `cp_model`.
+
+### Phase 3 · Evaluation, Critic Loop & Human-in-the-Loop
+
+- **Evaluation Agent (`src/carveout/agents/evaluation_agent.py`):** Independently verifies evidence completeness, hard planning constraints (via `validate_schedule_constraints`), financial consistency, and agent execution integrity. Outputs `EvaluationReport` (`PASS`, `PASS_WITH_WARNINGS`, `FAIL`, `INCOMPLETE`). Hard constraint violations never receive `PASS`.
+- **Critic Agent (`src/carveout/agents/critic_agent.py`):** Applies deterministic rules over `EvaluationReport` to issue `ACCEPTED`, `CORRECTION_REQUIRED`, `HUMAN_REVIEW_REQUIRED`, or `BLOCKED`. Optional Groq LLM only refines rationale prose and cannot override hard failures.
+- **Bounded Correction Loop (`src/carveout/tools/correction_tools.py`):** Explicit LangGraph cycle (`critic_node -> correction_node -> evaluation_node`) bounded by `max_correction_attempts` (default `2`, max `3`) with signature deduplication so identical corrections are never repeated.
+- **Human-in-the-Loop (`src/carveout/workflows/approval.py`):** Uses LangGraph `interrupt()` and checkpointing keyed by `thread_id` (`run_agent_workflow(..., human_review=True)` and `resume_agent_workflow(thread_id, decision)`), supporting `APPROVE`, `REJECT`, and `REQUEST_REVISION` without mutating source YAML files.
+
+### Phase 3.1 & 3.2 · Persistence, Reliability & Operational Observability
+
+- **SQLite Checkpoint Persistence (`src/carveout/workflows/checkpointer.py`):** Default storage in `.carveout/checkpoints.sqlite` (or `CARVEOUT_CHECKPOINT_DB` / `--db-path`). Operates in WAL mode with configurable busy timeout (`PRAGMA busy_timeout = 15000`) and clean connection teardown. In-memory mode is supported via `--in-memory`.
+- **Cross-Process Workflow CLI:**
+  - `carveout agent`: Executes workflow. Automatically catches interrupts when `--human-review` is enabled.
+  - `carveout agent-status --thread-id <ID> [--db-path <PATH>]`: Read-only inspection of workflow checkpoint status, pending tasks, eval status, and critic decision.
+  - `carveout agent-resume --thread-id <ID> --action <APPROVE|REJECT|REQUEST_REVISION> [--comment <MSG>]`: Safely resumes a paused workflow from any independent process.
+- **Structured Logging & Telemetry (`src/carveout/logging_config.py`, `src/carveout/workflows/metrics.py`):**
+  - Configurable log levels via `--log-level` (`DEBUG`, `INFO`, `WARNING`, `ERROR`) or `CARVEOUT_LOG_LEVEL`.
+  - Structured JSON format supported via `--json-logs` or `CARVEOUT_LOG_JSON=true`.
+  - Contextual log records capture `thread_id`, `node_name`, and `workflow_status`.
+  - Safe error propagation: Wrapped workflow nodes track execution times (`node_timings`) and capture errors into `CarveoutState["errors"]` without unhandled crashes.
+  - Telemetry metrics capture total duration, per-node execution times, correction count, and completion statuses.
+
+### Phase 4 · Decision Intelligence, Explainability & Reproducible Planning
+
+- **Decision Provenance Model (`src/carveout/decision_provenance.py`):** Captures structured `DecisionProvenanceRecord` instances documenting the exact action, deterministic facts, supporting graph dependencies, and rationale behind strategic decisions.
+- **Explainable Asset Planning (`src/carveout/explain.py`):** Inspectable per-asset wave assignment rationale tracing direct prerequisites, dependants, strongly connected components (SCCs), and the consequences of moving an asset earlier or later.
+- **Baseline vs Optimized Plan Comparison (`src/carveout/comparison.py`):** Transparent side-by-side reconciliation of wave counts, completion dates, TSA expenditures, and individual asset shifts between the deterministic baseline and CP-SAT scenarios.
+- **Reproducible What-If Scenarios (`src/carveout/scenarios_manager.py`):** Simulates parameter modifications (asset cutover delays, TSA rate multipliers) with memory isolation, guaranteeing that original portfolio YAML files are never mutated.
+- **Reproducible Decision Reports (`src/carveout/decision_report.py`):** Exports comprehensive planning and audit packages in both Markdown and structured JSON.
+- **Decision Intelligence Dashboard Tab (`src/carveout/dashboard.py`):** Integrates plan comparison tables and decision provenance entries into the standalone offline HTML dashboard.
+- **CLI Subcommands:**
+  - `carveout explain <ASSET_ID>`
+  - `carveout compare [--scenario <SCENARIO>]`
+  - `carveout scenario [--delay-asset <ID>] [--delay-weeks <WEEKS>] [--rate-multiplier <MULT>]`
+  - `carveout report [--format markdown|json] [--report-output <PATH>]`
 
 ---
 

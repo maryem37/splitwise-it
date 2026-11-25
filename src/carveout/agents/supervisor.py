@@ -130,7 +130,11 @@ def synthesize_final_response(state: CarveoutState) -> dict[str, Any]:
         except Exception:
             pass
 
+    current_approval = state.get("approval_status", "pending")
+    preserved_approval = current_approval if current_approval in ("approved", "rejected", "revision_limit_reached") else "ready_for_review"
+
     return {
         "final_response": final_text,
-        "approval_status": "ready_for_review",
+        "approval_status": preserved_approval,
+        "execution_trace": ["synthesis_node"],
     }

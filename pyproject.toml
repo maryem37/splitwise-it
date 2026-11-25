@@ -23,6 +23,7 @@ agents = [
   "langgraph>=0.2.0",
   "langchain-core>=0.3.0",
   "langchain-groq>=0.2.0",
+  "langgraph-checkpoint-sqlite>=3.0.0",
   "python-dotenv>=1.0",
 ]
 optimization = ["ortools>=9.8"]
