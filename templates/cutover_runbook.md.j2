@@ -28,7 +28,7 @@
   'retire': 'Decommission and retire',
   'retain_under_tsa': 'Exit TSA once all dependents have moved'
 } -%}
-{% for asset in assets %}{{ loop.index }}. {{ action_by_strategy.get(strategy_by_id.get(asset.id, 'migrate'), 'Migrate or configure') }} `{{ asset.id }}` ({{ asset.name }}); verify dependencies: {{ dependencies[asset.id] | join(', ') if dependencies[asset.id] else 'none' }}.
+{% for asset in assets %}{{ loop.index }}. {{ action_by_strategy.get(strategy_by_id.get(asset.id, 'migrate'), 'Migrate or configure') }} `{{ asset.id }}` ({{ asset.name }}){% if strategy_by_id.get(asset.id) == 'retain_under_tsa' and exit_strategy_by_id.get(asset.id) %}; post-TSA exit strategy: {{ exit_strategy_by_id[asset.id] }}{% endif %}; verify dependencies: {{ dependencies[asset.id] | join(', ') if dependencies[asset.id] else 'none' }}.
 {% endfor %}
 
 ## Validation and go/no-go

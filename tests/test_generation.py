@@ -252,3 +252,86 @@ def test_dashboard_tracks_pipeline_data_and_has_svg_arrowheads(tmp_path):
 
     assert metrics2["latest_planned_completion"] != metrics["latest_planned_completion"]
     assert metrics2["latest_planned_completion"] in dash2
+
+
+# ── Commit 1: exit_strategy field ──────────────────────────────────────────
+
+def test_exit_strategy_in_strategy_decisions():
+    """assess_strategies must include exit_strategy for every retain_under_tsa asset."""
+    portfolio = load_portfolio(ROOT / "data/portfolio_v1.yaml")
+    strategies = assess_strategies(portfolio, ROOT / "config/strategy_rules.yaml")
+    retain_decisions = [d for d in strategies if d["strategy"] == "retain_under_tsa"]
+    assert retain_decisions, "Expected at least one retain_under_tsa asset"
+    missing = [d["asset_id"] for d in retain_decisions if "exit_strategy" not in d]
+    assert not missing, f"Missing exit_strategy in decisions for: {missing}"
+
+
+def test_exit_strategy_missing_raises_value_error(tmp_path):
+    """An asset with retain_under_tsa and no exit_strategy must raise ValueError."""
+    import yaml
+    from carveout.loader import load_portfolio as _load
+    bad_yaml = tmp_path / "bad.yaml"
+    bad_yaml.write_text(
+        "planning:\n"
+        "  company: Test\n"
+        "  carve_out_description: test\n"
+        "  day1: 2027-01-04\n"
+        "  cutover_start: 2027-03-01\n"
+        "  target_tsa_exit: 2027-12-31\n"
+        "assets:\n"
+        "  - {id: X-01, name: X, type: application, owner: shared, criticality: 3, users: 0}\n"
+        "relationships: []\n",
+        encoding="utf-8",
+    )
+    portfolio = _load(bad_yaml)
+    # Inject a retain_under_tsa rule that covers X-01 without exit_strategy
+    import types, yaml as _yaml
+    rules_path = tmp_path / "rules.yaml"
+    rules_path.write_text(
+        "rules:\n"
+        "  - name: retain_x\n"
+        "    asset_ids: [X-01]\n"
+        "    strategy: retain_under_tsa\n"
+        "    reason: test\n"
+        "    confidence: 0.9\n"
+        "default:\n"
+        "  strategy: migrate\n"
+        "  reason: default\n"
+        "  confidence: 0.5\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="exit_strategy"):
+        assess_strategies(portfolio, rules_path)
+
+
+def test_separation_plan_contains_exit_strategy_column(tmp_path):
+    """separation_plan.md must have an 'Exit Strategy' column with values for retained assets."""
+    portfolio = load_portfolio(ROOT / "data/portfolio_v1.yaml")
+    strategies = assess_strategies(portfolio, ROOT / "config/strategy_rules.yaml")
+    sequencing = compute_waves(portfolio, ROOT / "config/constraints.yaml", strategies)
+    metrics = calculate_metrics(portfolio, sequencing)
+    generate_documents(portfolio, strategies, sequencing, metrics, tmp_path)
+
+    plan = (tmp_path / "separation_plan.md").read_text(encoding="utf-8")
+    assert "Exit Strategy" in plan
+    # Verify at least one exit_strategy value appears (e.g. rebuild or migrate)
+    assert any(
+        d.get("exit_strategy") and d["exit_strategy"] in plan
+        for d in strategies
+        if d["strategy"] == "retain_under_tsa"
+    )
+
+
+def test_runbook_shows_exit_strategy_for_retained_assets(tmp_path):
+    """Runbooks for retain_under_tsa assets must display 'post-TSA exit strategy'."""
+    portfolio = load_portfolio(ROOT / "data/portfolio_v1.yaml")
+    strategies = assess_strategies(portfolio, ROOT / "config/strategy_rules.yaml")
+    sequencing = compute_waves(portfolio, ROOT / "config/constraints.yaml", strategies)
+    metrics = calculate_metrics(portfolio, sequencing)
+    generate_documents(portfolio, strategies, sequencing, metrics, tmp_path)
+
+    # APP-01 is retain_under_tsa with exit_strategy: rebuild
+    tsa_wave_num = next(w["wave"] for w in sequencing["waves"] if "APP-01" in w["assets"])
+    runbook = (tmp_path / "runbooks" / f"wave-{tsa_wave_num:02d}.md").read_text(encoding="utf-8")
+    assert "post-TSA exit strategy" in runbook
+    assert "rebuild" in runbook

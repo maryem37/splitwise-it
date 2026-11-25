@@ -11,9 +11,9 @@ TSA cost is {{ metrics.estimated_tsa_cost_total }}.
 
 ## Strategy by asset
 
-| Asset | Strategy | Reason |
-|---|---|---|
-{% for decision in strategies %}| {{ decision.asset_id }} | {{ decision.strategy }} | {{ decision.reason | join('; ') }} |
+| Asset | Strategy | Exit Strategy | Reason |
+|---|---|---|---|
+{% for decision in strategies %}| {{ decision.asset_id }} | {{ decision.strategy }} | {{ decision.exit_strategy if decision.exit_strategy else '—' }} | {{ decision.reason | join('; ') }} |
 {% endfor %}
 
 ## Wave overview
