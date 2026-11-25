@@ -1,7 +1,7 @@
 # Carve-out Copilot
 
 > **Deterministic IT separation planner powered by dependency-graph analysis.**
-> Built for the *Nordia Retail* carve-out from Atlas Group — 30 assets, 8 migration waves, full TSA cost visibility and conflict detection.
+> Built for the *Nordia Retail* carve-out from Atlas Group — 30 assets, a six-wave current plan, TSA cost visibility and conflict detection.
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
@@ -75,6 +75,69 @@ portfolio_v1.yaml   ──►  loader.py  ──►  graph.py (NetworkX DiGraph)
                        runbooks)          graph.html
 ```
 
+### Project architecture
+
+The planner separates deterministic decisions from optional integrations and
+presentation. The core pipeline validates the portfolio, builds its dependency
+graph, assigns strategies, schedules waves, and derives metrics. Documents,
+the dashboard, evaluation, Neo4j, and the read-only MCP server consume those
+computed results.
+
+```mermaid
+flowchart LR
+    subgraph Inputs
+        P["Portfolio YAML"]
+        R["Strategy rules"]
+        C["Scheduling constraints"]
+        E["Expert reference plan"]
+    end
+
+    subgraph Core["Deterministic planning engine"]
+        L["loader.py<br/>Pydantic validation"]
+        G["graph.py<br/>NetworkX graph and cycles"]
+        S["strategy.py<br/>Ordered rules"]
+        Q["sequencing.py<br/>Dependency-aware waves"]
+        M["metrics.py<br/>TSA cost and KPIs"]
+    end
+
+    subgraph Deliverables
+        D["documents.py + Jinja2<br/>Plan, runbooks, CSV"]
+        UI["dashboard.py<br/>Offline dashboard"]
+        EV["evaluate.py<br/>Expert comparison"]
+    end
+
+    subgraph Integrations["Optional integrations"]
+        AI["Groq narrative<br/>Strict JSON + guardrails"]
+        N4["Neo4j / Cypher"]
+        MCP["MCP server<br/>Read-only stdio"]
+    end
+
+    P --> L --> G
+    L --> S
+    R --> S
+    G --> Q
+    S --> Q
+    C --> Q
+    Q --> M
+    Q --> D
+    S --> D
+    M --> D
+    Q --> UI
+    M --> UI
+    S --> UI
+    D -. "optional --ai" .-> AI
+    G --> N4
+    Q --> N4
+    S --> EV
+    Q --> EV
+    E --> EV
+    L --> MCP
+    G --> MCP
+    S --> MCP
+    Q --> MCP
+    M --> MCP
+```
+
 **Key design principle:** the algorithm is fully deterministic. No LLM is involved in planning — AI is an optional layer that wraps computed results with human-readable narrative. See [docs/architecture.md](docs/architecture.md) for the full system architecture and Mermaid diagrams.
 
 ---
@@ -86,6 +149,7 @@ d:\graph\
 ├── data/
 │   ├── portfolio_v1.yaml        ← Main portfolio definition
 │   ├── portfolio_v2.yaml        ← Robustness-test variant
+│   ├── portfolio_v3.yaml        ← Independent Helios blind-test input; schema validation only
 │   └── expert_plan_v1.yaml      ← Hand-authored reference plan (for evaluation)
 ├── config/
 │   ├── strategy_rules.yaml      ← Rules for strategy assignment
@@ -225,25 +289,28 @@ py -m http.server 8080
 
 | Tab | What you see |
 |---|---|
-| **📊 Dependency Graph** | All 30 assets arranged by wave. Click any node to highlight its direct dependencies (blue arrows) and dependants (orange arrows). Assets with active conflicts have a **red outline**; cycle members have an **orange outline**. |
-| **📅 Gantt Calendar** | Wave bars on a timeline from Mar 2027 to Mar 2029. Two milestone lines: TSA-01 hard stop (30 Sep 2027, red) and the target TSA exit date (31 Dec 2027, orange). |
-| **⚠️ Conflicts & Risks** | Full conflict table (licence expiries, TSA deadline overruns, circular dependency) + 8-item risk register with probability, impact, and owner. |
+| **📊 Dependency Graph** | All 30 assets arranged across the six waves in the current portfolio v1 run. Click any node to highlight its direct dependencies (blue arrows) and dependants (orange arrows). Assets with active conflicts have a **red outline**; cycle members have an **orange outline**. |
+| **📅 Gantt Calendar** | Wave bars across the current 2027 plan, with TSA dates and the target exit date shown for schedule context. |
+| **⚠️ Conflicts & Risks** | The current run shows two open conflicts and a 13-item risk register, including licence and TSA exposure, the dependency cycle, sensitive data, identity and duplicate-function risks. |
 | **💲 TSA Cost Breakdown** | Per-TSA estimated cost with proportional bars, months of service needed, and extensibility flags. |
 
 ### KPI bar
 
 | KPI | Value | Meaning |
 |---|---|---|
-| Waves | 8 | Migration waves computed by topological sort |
+| Waves | 6 | Migration waves computed by topological sort |
 | Assets | 30 | Total assets in the portfolio |
 | Cycle | 1 | APP-06 ↔ APP-07 mutual dependency (needs coordinated cutover) |
-| Conflicts | 7 | TSA expirations + licence clash requiring action |
-| Latest completion | **Mar 2029** | 15 months beyond the Dec 2027 TSA exit target |
-| TSA cost | **$3.9 M** | Across 4 TSA services (27 months for TSA-04 alone) |
+| Conflicts | 2 | APP-08 licence expiry and APP-01 TSA-01 end-date exposure |
+| Latest completion | **6 Dec 2027** | 25 days before the 31 Dec 2027 target TSA exit |
+| TSA cost | **$1.93 M** | Estimated across the four TSA services |
 
 ---
 
 ## 7 · Screenshots
+
+The original screenshots 01–08 are retained. Screenshots 09–10 document the
+latest six-wave dashboard and its current risk register.
 
 ### Dashboard — Dependency Graph (overview)
 ![Dependency graph overview showing all 30 assets in 8 waves](docs/screenshots/01_graph_overview.png)
@@ -298,6 +365,16 @@ py -m http.server 8080
 
 ![Force-directed portfolio dependency graph](docs/screenshots/08_vis_network_graph.jpg)
 
+### Latest dashboard — six-wave plan
+> Current portfolio v1 snapshot: 30 assets, one dependency cycle, two open conflicts, completion on 6 Dec 2027, and estimated TSA cost of $1.93M.
+
+![Current dashboard with six planned waves, two open conflicts and estimated TSA cost](docs/screenshots/09_dashboard_current_run.png)
+
+### Latest dashboard — risk register
+> The current register contains 13 identified risks, with likelihood, impact, owner and affected assets shown for review.
+
+![Current risk register with 13 risks and their owners and affected assets](docs/screenshots/10_risk_register_current.png)
+
 ---
 
 ## 8 · Data model
@@ -337,6 +414,12 @@ freeze_periods: []         # date ranges when no wave may start
 ### `data/portfolio_v1.yaml`
 The main portfolio input. Edit assets, relationships, licences, or TSA services here, then re-run `carveout run-all` to regenerate all outputs.
 
+### `data/portfolio_v3.yaml`
+An independent fictional Helios Utilities portfolio supplied for a blind test.
+It contains 30 assets, four TSA services and eight licences. It has been
+schema-validated only: no expert answer file or planning, sensitivity or
+evaluation output has been generated for this portfolio.
+
 ---
 
 ## 10 · AI narrative generation (optional)
@@ -369,10 +452,16 @@ Available tools:
 
 | Tool | Purpose |
 |---|---|
-| `portfolio_summary` | Portfolio counts and planning dates |
-| `list_assets` | Asset metadata, filterable by type, owner, and sensitivity |
-| `asset_dependencies` | Prerequisites and dependants for one asset |
-| `compute_plan` | Strategies, waves, cycles, metrics, and conflicts |
+| `portfolio_summary` | Company, planning dates, and counts of assets, relationships, licences, TSA services and sensitive assets |
+| `list_assets` | Asset IDs, type, owner, criticality, users, function, sensitivity flag, effort, licence and TSA IDs; optional type, owner and sensitivity filters |
+| `asset_dependencies` | Transitive prerequisites and dependants for one asset. Edges follow `source depends on target`. |
+| `compute_plan` | Deterministic strategies, waves, cycles, metrics and conflicts, computed in memory |
+
+The server reads the portfolio and configuration locally. It exposes no
+write tools, does not create files, and does not send portfolio data to an
+LLM or remote MCP service. `CARVEOUT_PORTFOLIO`, `CARVEOUT_RULES`, and
+`CARVEOUT_CONSTRAINTS` select local input files; relative paths resolve from
+the repository root. Paths are not accepted as tool-call arguments.
 
 After installing the `mcp` extra, configure the local server in VS Code:
 
@@ -390,10 +479,6 @@ After installing the `mcp` extra, configure the local server in VS Code:
   }
 }
 ```
-
-`CARVEOUT_PORTFOLIO`, `CARVEOUT_RULES`, and `CARVEOUT_CONSTRAINTS` may point
-to alternate local input files. No portfolio paths are accepted as tool
-arguments.
 
 ## 12 · Neo4j & Cypher graph analytics
 
@@ -452,7 +537,9 @@ Test modules:
 |---|---|
 | `tests/test_loader.py` | YAML loading, schema validation, error cases |
 | `tests/test_planning.py` | Wave computation, strategy assignment, conflict detection |
+| `tests/test_sensitivity.py` | Scenario, Monte Carlo, mitigation and critical-path results |
 | `tests/test_generation.py` | Document rendering, risk register, guardrails |
+| `tests/test_mcp_server.py` | MCP tool behavior and local stdio protocol |
 
 ---
 
