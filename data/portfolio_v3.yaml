@@ -1,0 +1,449 @@
+planning:
+  company: Helios Utilities
+  carve_out_description: Business services division divested from Helios Utilities
+  day1: 2027-01-04
+  cutover_start: 2027-03-01
+  target_tsa_exit: 2028-06-30
+  currency: EUR
+  max_assets_per_wave: 8
+  weeks_per_wave_gap: 2
+
+assets:
+  - id: HU-INF-001
+    name: Helios private cloud foundation
+    type: infrastructure
+    owner: carved_out
+    criticality: 5
+    users: 0
+    hosting: Azure
+    build_effort_weeks: 13
+    effort_weeks: 5
+  - id: HU-INF-002
+    name: Central compute fabric
+    type: infrastructure
+    owner: shared
+    criticality: 5
+    users: 0
+    hosting: Helios data centre
+    build_effort_weeks: 29
+    effort_weeks: 11
+    exit_strategy: rebuild
+    tsa_id: HU-TSA-COMPUTE
+  - id: HU-INF-003
+    name: Workforce identity broker
+    type: infrastructure
+    owner: shared
+    criticality: 5
+    users: 640
+    hosting: Helios data centre
+    build_effort_weeks: 17
+    effort_weeks: 7
+    exit_strategy: migrate
+    tsa_id: HU-TSA-IDENTITY
+  - id: HU-INF-004
+    name: Field communications gateway
+    type: infrastructure
+    owner: carved_out
+    criticality: 4
+    users: 38
+    hosting: Private cloud
+    build_effort_weeks: 8
+    effort_weeks: 9
+  - id: HU-INF-005
+    name: Legacy alarm relay
+    type: infrastructure
+    owner: parent
+    criticality: 2
+    users: 0
+    hosting: Helios data centre
+    build_effort_weeks: 21
+    effort_weeks: 3
+    exit_strategy: retire
+    tsa_id: HU-TSA-OPERATIONS
+
+  - id: HU-DB-001
+    name: Advanced meter readings
+    type: datastore
+    owner: carved_out
+    criticality: 5
+    users: 0
+    sensitive: true
+    hosting: Azure
+    build_effort_weeks: 22
+    effort_weeks: 12
+    licence_id: HU-LIC-METER
+  - id: HU-DB-002
+    name: Business customer agreements
+    type: datastore
+    owner: carved_out
+    criticality: 4
+    users: 0
+    sensitive: true
+    hosting: Azure
+    build_effort_weeks: 6
+    effort_weeks: 3
+  - id: HU-DB-003
+    name: Settlement ledger
+    type: datastore
+    owner: shared
+    criticality: 5
+    users: 0
+    sensitive: true
+    hosting: Helios data centre
+    build_effort_weeks: 31
+    effort_weeks: 18
+    exit_strategy: rebuild
+    tsa_id: HU-TSA-FINANCE
+    licence_id: HU-LIC-LEDGER
+  - id: HU-DB-004
+    name: Service location registry
+    type: datastore
+    owner: carved_out
+    criticality: 4
+    users: 0
+    hosting: Azure
+    build_effort_weeks: 14
+    effort_weeks: 8
+    licence_id: HU-LIC-GEO
+  - id: HU-DB-005
+    name: Grid event archive
+    type: datastore
+    owner: carved_out
+    criticality: 3
+    users: 0
+    hosting: Azure
+    build_effort_weeks: 9
+    effort_weeks: 5
+  - id: HU-DB-006
+    name: Operational reference catalogue
+    type: datastore
+    owner: shared
+    criticality: 4
+    users: 0
+    hosting: Helios data centre
+    build_effort_weeks: 26
+    effort_weeks: 16
+    exit_strategy: migrate
+    tsa_id: HU-TSA-COMPUTE
+  - id: HU-DB-007
+    name: Weather calibration vault
+    type: datastore
+    owner: carved_out
+    criticality: 2
+    users: 0
+    hosting: Azure
+    build_effort_weeks: 4
+    effort_weeks: 2
+
+  - id: HU-APP-001
+    name: Secure file exchange broker
+    type: application
+    owner: shared
+    criticality: 4
+    users: 42
+    function: managed_file_transfer
+    hosting: Helios data centre
+    build_effort_weeks: 19
+    effort_weeks: 6
+    exit_strategy: clone
+    tsa_id: HU-TSA-COMPUTE
+  - id: HU-APP-002
+    name: Workforce access console
+    type: application
+    owner: shared
+    criticality: 4
+    users: 190
+    function: workforce_access
+    hosting: Helios data centre
+    build_effort_weeks: 33
+    effort_weeks: 14
+    exit_strategy: rebuild
+    tsa_id: HU-TSA-IDENTITY
+    licence_id: HU-LIC-ACCESS
+  - id: HU-APP-003
+    name: Commercial settlement desk
+    type: application
+    owner: shared
+    criticality: 5
+    users: 26
+    function: settlement_operations
+    hosting: Helios data centre
+    build_effort_weeks: 12
+    effort_weeks: 9
+    exit_strategy: migrate
+    tsa_id: HU-TSA-FINANCE
+    licence_id: HU-LIC-LEDGER
+  - id: HU-APP-004
+    name: Outage response planner
+    type: application
+    owner: carved_out
+    criticality: 5
+    users: 73
+    function: outage_management
+    hosting: Azure
+    build_effort_weeks: 27
+    effort_weeks: 22
+    licence_id: HU-LIC-OPS
+  - id: HU-APP-005
+    name: Network event monitor
+    type: application
+    owner: carved_out
+    criticality: 5
+    users: 61
+    function: network_monitoring
+    hosting: Azure
+    build_effort_weeks: 6
+    effort_weeks: 4
+  - id: HU-APP-006
+    name: Meter exchange manager
+    type: application
+    owner: carved_out
+    criticality: 4
+    users: 34
+    function: meter_data_exchange
+    hosting: Azure
+    build_effort_weeks: 38
+    effort_weeks: 19
+    licence_id: HU-LIC-METER
+  - id: HU-APP-007
+    name: Service dispatch console
+    type: application
+    owner: carved_out
+    criticality: 5
+    users: 112
+    function: field_dispatch
+    hosting: Azure
+    build_effort_weeks: 15
+    effort_weeks: 11
+    licence_id: HU-LIC-FIELD
+  - id: HU-APP-008
+    name: North region field service
+    type: application
+    owner: carved_out
+    criticality: 4
+    users: 47
+    function: field_service
+    hosting: Azure
+    build_effort_weeks: 24
+    effort_weeks: 16
+    licence_id: HU-LIC-FIELD
+  - id: HU-APP-009
+    name: South region field service
+    type: application
+    owner: carved_out
+    criticality: 4
+    users: 39
+    function: field_service
+    hosting: Azure
+    build_effort_weeks: 10
+    effort_weeks: 7
+  - id: HU-APP-010
+    name: Business customer portal
+    type: application
+    owner: carved_out
+    criticality: 5
+    users: 6800
+    function: customer_portal
+    hosting: Azure
+    build_effort_weeks: 35
+    effort_weeks: 25
+    licence_id: HU-LIC-CUSTOMER
+  - id: HU-APP-011
+    name: Contract renewal workspace
+    type: application
+    owner: carved_out
+    criticality: 3
+    users: 84
+    function: contract_management
+    hosting: SaaS
+    build_effort_weeks: 17
+    effort_weeks: 13
+  - id: HU-APP-012
+    name: Energy usage analytics
+    type: application
+    owner: carved_out
+    criticality: 3
+    users: 31
+    function: energy_analytics
+    hosting: Azure
+    build_effort_weeks: 29
+    effort_weeks: 18
+    licence_id: HU-LIC-ANALYTICS
+  - id: HU-APP-013
+    name: Asset inventory console
+    type: application
+    owner: carved_out
+    criticality: 4
+    users: 56
+    function: asset_inventory
+    hosting: Azure
+    build_effort_weeks: 8
+    effort_weeks: 5
+  - id: HU-APP-014
+    name: Regional work order coordinator
+    type: application
+    owner: carved_out
+    criticality: 5
+    users: 94
+    function: work_order_coordination
+    hosting: Azure
+    build_effort_weeks: 21
+    effort_weeks: 21
+  - id: HU-APP-015
+    name: Crew allocation service
+    type: application
+    owner: carved_out
+    criticality: 4
+    users: 58
+    function: crew_allocation
+    hosting: Azure
+    build_effort_weeks: 13
+    effort_weeks: 10
+  - id: HU-APP-016
+    name: Mobile job completion
+    type: application
+    owner: carved_out
+    criticality: 4
+    users: 125
+    function: mobile_job_completion
+    hosting: Azure
+    build_effort_weeks: 31
+    effort_weeks: 17
+  - id: HU-APP-017
+    name: Plant maintenance scheduler
+    type: application
+    owner: carved_out
+    criticality: 3
+    users: 45
+    function: maintenance_scheduling
+    hosting: SaaS
+    build_effort_weeks: 5
+    effort_weeks: 8
+  - id: HU-APP-018
+    name: Equipment maintenance calendar
+    type: application
+    owner: carved_out
+    criticality: 3
+    users: 28
+    function: maintenance_calendar
+    hosting: SaaS
+    build_effort_weeks: 26
+    effort_weeks: 12
+
+relationships:
+  - {source: HU-APP-001, target: HU-DB-006, type: READS_FROM}
+  - {source: HU-DB-006, target: HU-INF-002, type: HOSTED_ON}
+  - {source: HU-APP-002, target: HU-INF-003, type: AUTHENTICATES_VIA}
+  - {source: HU-APP-003, target: HU-DB-003, type: WRITES_TO}
+  - {source: HU-APP-004, target: HU-INF-001, type: HOSTED_ON}
+  - {source: HU-APP-005, target: HU-INF-001, type: HOSTED_ON}
+  - {source: HU-APP-005, target: HU-INF-005, type: CONNECTS_VIA}
+  - {source: HU-APP-006, target: HU-INF-001, type: HOSTED_ON}
+  - {source: HU-APP-006, target: HU-DB-001, type: WRITES_TO}
+  - {source: HU-APP-007, target: HU-INF-001, type: HOSTED_ON}
+  - {source: HU-APP-007, target: HU-DB-004, type: READS_FROM}
+  - {source: HU-APP-008, target: HU-INF-001, type: HOSTED_ON}
+  - {source: HU-APP-009, target: HU-INF-001, type: HOSTED_ON}
+  - {source: HU-APP-010, target: HU-INF-001, type: HOSTED_ON}
+  - {source: HU-APP-010, target: HU-DB-002, type: READS_FROM}
+  - {source: HU-APP-011, target: HU-INF-001, type: HOSTED_ON}
+  - {source: HU-APP-012, target: HU-INF-001, type: HOSTED_ON}
+  - {source: HU-APP-012, target: HU-DB-005, type: READS_FROM}
+  - {source: HU-APP-013, target: HU-INF-001, type: HOSTED_ON}
+  - {source: HU-APP-014, target: HU-APP-015, type: CALLS}
+  - {source: HU-APP-015, target: HU-APP-016, type: CALLS}
+  - {source: HU-APP-016, target: HU-APP-014, type: CALLS}
+  - {source: HU-APP-017, target: HU-APP-018, type: CALLS}
+  - {source: HU-APP-018, target: HU-APP-017, type: CALLS}
+
+licences:
+  - id: HU-LIC-METER
+    vendor: Meridian Instruments
+    product: Meter Data Suite
+    end_date: 2027-08-31
+    transferable: true
+    annual_cost: 46000
+    notice_period_days: 75
+  - id: HU-LIC-LEDGER
+    vendor: Ledgerpeak
+    product: Enterprise Journal
+    end_date: 2029-11-30
+    transferable: false
+    annual_cost: 128000
+    notice_period_days: 150
+  - id: HU-LIC-GEO
+    vendor: Cartographica
+    product: Utility Location Engine
+    end_date: 2029-03-31
+    transferable: true
+    annual_cost: 27500
+    notice_period_days: 50
+  - id: HU-LIC-ACCESS
+    vendor: Aster IAM
+    product: Workforce Access
+    end_date: 2028-12-31
+    transferable: false
+    annual_cost: 67000
+    notice_period_days: 110
+  - id: HU-LIC-OPS
+    vendor: Beacon Systems
+    product: Operations Control
+    end_date: 2029-05-31
+    transferable: true
+    annual_cost: 83000
+    notice_period_days: 90
+  - id: HU-LIC-FIELD
+    vendor: Wayline
+    product: Field Workforce
+    end_date: 2029-02-28
+    transferable: true
+    annual_cost: 39000
+    notice_period_days: 60
+  - id: HU-LIC-CUSTOMER
+    vendor: Northstar Digital
+    product: Business Customer Hub
+    end_date: 2029-09-30
+    transferable: true
+    annual_cost: 54000
+    notice_period_days: 45
+  - id: HU-LIC-ANALYTICS
+    vendor: Prism Works
+    product: Grid Insight
+    end_date: 2028-10-31
+    transferable: false
+    annual_cost: 34500
+    notice_period_days: 80
+
+tsa_services:
+  - id: HU-TSA-COMPUTE
+    service: Helios compute fabric and reference data
+    provider: Helios Utilities
+    start_date: 2027-01-04
+    end_date: 2027-10-31
+    monthly_cost: 73500
+    extendable: false
+    extension_months: 0
+  - id: HU-TSA-IDENTITY
+    service: Workforce identity and access
+    provider: Helios Utilities
+    start_date: 2027-01-04
+    end_date: 2028-02-29
+    monthly_cost: 18400
+    extendable: true
+    extension_months: 6
+  - id: HU-TSA-FINANCE
+    service: Commercial settlement operations
+    provider: Helios Utilities
+    start_date: 2027-01-04
+    end_date: 2028-03-31
+    monthly_cost: 26750
+    extendable: true
+    extension_months: 4
+  - id: HU-TSA-OPERATIONS
+    service: Legacy alarm relay support
+    provider: Helios Utilities
+    start_date: 2027-01-04
+    end_date: 2028-01-31
+    monthly_cost: 11200
+    extendable: true
+    extension_months: 3
