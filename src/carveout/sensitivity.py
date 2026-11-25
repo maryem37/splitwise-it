@@ -62,26 +62,38 @@ def _run_monte_carlo(
     strategies: list[dict[str, Any]],
     trials: int = 1000,
     seed: int = 42,
+    variant: str = "per_asset",
+    dist_name: str = "skewed (0.8, 1.0, 1.5)",
+    low: float = 0.8,
+    mode: float = 1.0,
+    high: float = 1.5,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     rng = random.Random(seed)
     completions: list[date] = []
     costs: list[float] = []
     wave_counts: list[int] = []
     conflict_counts: list[int] = []
-    margins: list[int] = []
     meets_target = 0
 
     for _ in range(trials):
         sim = _clone_portfolio(portfolio)
-        for asset in sim.assets:
-            if asset.build_effort_weeks > 0:
-                asset.build_effort_weeks = max(
-                    0, round(asset.build_effort_weeks * rng.triangular(0.8, 1.5, 1.0))
-                )
-            if asset.effort_weeks > 0:
-                asset.effort_weeks = max(
-                    1, round(asset.effort_weeks * rng.triangular(0.8, 1.5, 1.0))
-                )
+        if variant == "global":
+            factor = rng.triangular(low, high, mode)
+            for asset in sim.assets:
+                if asset.build_effort_weeks > 0:
+                    asset.build_effort_weeks = max(0, round(asset.build_effort_weeks * factor))
+                if asset.effort_weeks > 0:
+                    asset.effort_weeks = max(1, round(asset.effort_weeks * factor))
+        else:
+            for asset in sim.assets:
+                if asset.build_effort_weeks > 0:
+                    asset.build_effort_weeks = max(
+                        0, round(asset.build_effort_weeks * rng.triangular(low, high, mode))
+                    )
+                if asset.effort_weeks > 0:
+                    asset.effort_weeks = max(
+                        1, round(asset.effort_weeks * rng.triangular(low, high, mode))
+                    )
         seq = compute_waves(sim, constraints_path, strategies)
         metrics = calculate_metrics(sim, seq)
         latest = date.fromisoformat(metrics["latest_planned_completion"])
@@ -89,36 +101,43 @@ def _run_monte_carlo(
         costs.append(metrics["estimated_tsa_cost_total"])
         wave_counts.append(metrics["wave_count"])
         conflict_counts.append(len(seq["conflicts"]))
-        margins.append((sim.planning.target_tsa_exit - latest).days)
         if latest <= sim.planning.target_tsa_exit:
             meets_target += 1
 
     sorted_dates = sorted(completions)
+    mean_date = date.fromordinal(round(sum(d.toordinal() for d in completions) / trials))
     p50_date = sorted_dates[int(0.50 * (trials - 1))]
     p80_date = sorted_dates[int(0.80 * (trials - 1))]
+    p90_date = sorted_dates[int(0.90 * (trials - 1))]
     prob_target = round(100.0 * meets_target / trials, 2)
+    mean_conflicts = round(sum(conflict_counts) / trials, 2)
     conflict_dist = {str(k): v for k, v in sorted(Counter(conflict_counts).items())}
 
     mc_stats = {
+        "variant": variant,
+        "law": dist_name,
         "trials": trials,
         "seed": seed,
+        "mean_completion": mean_date.isoformat(),
         "p50_completion": p50_date.isoformat(),
         "p80_completion": p80_date.isoformat(),
+        "p90_completion": p90_date.isoformat(),
         "target_tsa_exit": portfolio.planning.target_tsa_exit.isoformat(),
         "target_exit_probability_percent": prob_target,
+        "mean_conflict_count": mean_conflicts,
         "conflict_count_distribution": conflict_dist,
         "mean_tsa_cost": round(sum(costs) / trials, 2),
         "mean_wave_count": round(sum(wave_counts) / trials, 2),
         "p50_margin_days": (portfolio.planning.target_tsa_exit - p50_date).days,
     }
     row = {
-        "scenario": f"monte_carlo_{trials}",
-        "wave_count": round(sum(wave_counts) / trials, 2),
+        "scenario": f"monte_carlo_{variant}_{dist_name.split()[0]}_{trials}",
+        "wave_count": mc_stats["mean_wave_count"],
         "latest_planned_completion": f"P50={p50_date.isoformat()} / P80={p80_date.isoformat()}",
         "estimated_tsa_cost_total": mc_stats["mean_tsa_cost"],
-        "conflict_count": round(sum(conflict_counts) / trials, 2),
+        "conflict_count": mean_conflicts,
         "margin_to_target_days": mc_stats["p50_margin_days"],
-        "details": f"P(on_time)={prob_target}%, conflicts={json.dumps(conflict_dist)}",
+        "details": f"P(on_time)={prob_target}%, P90={p90_date.isoformat()}, conflicts={json.dumps(conflict_dist)}",
     }
     return row, mc_stats
 
@@ -166,9 +185,23 @@ def run_sensitivity(
             break
     rows.append(_evaluate_scenario("tsa_01_extended_6m", p_tsa01, constraints_path, strategies, extra_tsa_cost=extra_cost))
 
-    # 6. Monte Carlo
-    mc_row, mc_stats = _run_monte_carlo(portfolio, constraints_path, strategies, trials=trials, seed=seed)
-    rows.append(mc_row)
+    # 6. Monte Carlo (2 variants x 2 laws with the same seed)
+    mc_configs = [
+        ("global", "skewed (0.8, 1.0, 1.5)", 0.8, 1.0, 1.5),
+        ("global", "symmetric (0.9, 1.0, 1.1)", 0.9, 1.0, 1.1),
+        ("per_asset", "skewed (0.8, 1.0, 1.5)", 0.8, 1.0, 1.5),
+        ("per_asset", "symmetric (0.9, 1.0, 1.1)", 0.9, 1.0, 1.1),
+    ]
+    mc_variants: list[dict[str, Any]] = []
+    for variant, dist_name, low, mode, high in mc_configs:
+        mc_row, mc_item = _run_monte_carlo(
+            portfolio, constraints_path, strategies,
+            trials=trials, seed=seed, variant=variant,
+            dist_name=dist_name, low=low, mode=mode, high=high,
+        )
+        rows.append(mc_row)
+        mc_variants.append(mc_item)
+    mc_stats = next(item for item in mc_variants if item["variant"] == "per_asset" and item["law"].startswith("skewed"))
 
     out = Path(output_dir)
     out.mkdir(parents=True, exist_ok=True)
@@ -198,15 +231,24 @@ def run_sensitivity(
         )
     md_lines.extend([
         "",
-        f"## Monte Carlo ({mc_stats['trials']} trials, seed={mc_stats['seed']})",
+        f"## Monte Carlo ({trials} trials, seed={seed})",
         "",
-        f"- **P50 completion date:** `{mc_stats['p50_completion']}` (margin: {mc_stats['p50_margin_days']} days)",
-        f"- **P80 completion date:** `{mc_stats['p80_completion']}`",
-        f"- **Probability of meeting `target_tsa_exit` (`{mc_stats['target_tsa_exit']}`):** {mc_stats['target_exit_probability_percent']}%",
-        "- **Conflict count distribution:**",
+        "| Variante | Loi | Moyenne | P50 | P80 | P90 | Prob. target_tsa_exit | Conflits moyens |",
+        "|---|---|---|---|---|---|---:|---:|",
+    ])
+    for item in mc_variants:
+        md_lines.append(
+            f"| {item['variant']} | {item['law']} | {item['mean_completion']} | "
+            f"{item['p50_completion']} | {item['p80_completion']} | {item['p90_completion']} | "
+            f"{item['target_exit_probability_percent']}% | {item['mean_conflict_count']} |"
+        )
+    md_lines.extend([
+        "",
+        f"### Conflict count distribution ({mc_stats['variant']}, {mc_stats['law']})",
+        "",
     ])
     for count_str, freq in mc_stats["conflict_count_distribution"].items():
-        md_lines.append(f"  - `{count_str}` conflicts: {freq} / {mc_stats['trials']} trials")
+        md_lines.append(f"- `{count_str}` conflicts: {freq} / {mc_stats['trials']} trials")
     (out / "sensitivity.md").write_text("\n".join(md_lines) + "\n", encoding="utf-8")
 
-    return {"scenarios": rows, "monte_carlo": mc_stats}
+    return {"scenarios": rows, "monte_carlo": mc_stats, "monte_carlo_variants": mc_variants}

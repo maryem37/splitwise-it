@@ -37,12 +37,23 @@ def test_sensitivity_is_deterministic_and_base_matches_run_all(tmp_path):
     expected_margin = (portfolio.planning.target_tsa_exit - date.fromisoformat(base_metrics["latest_planned_completion"])).days
     assert base_row["margin_to_target_days"] == expected_margin
 
-    # Verify all 6 scenarios and Monte Carlo stats exist in CSV and MD
+    # Verify all scenarios and 4 Monte Carlo variants exist in CSV and MD
     with (out1 / "sensitivity.csv").open(encoding="utf-8-sig") as f:
         csv_rows = list(csv.DictReader(f))
-    assert len(csv_rows) == 6
+    assert len(csv_rows) == 9
     mc = res1["monte_carlo"]
     assert mc["trials"] == 1000
-    assert mc["p50_completion"] <= mc["p80_completion"]
+    assert mc["p50_completion"] <= mc["p80_completion"] <= mc["p90_completion"]
     assert 0.0 <= mc["target_exit_probability_percent"] <= 100.0
     assert sum(mc["conflict_count_distribution"].values()) == 1000
+
+    variants = res1["monte_carlo_variants"]
+    assert len(variants) == 4
+    assert {(v["variant"], v["law"]) for v in variants} == {
+        ("global", "skewed (0.8, 1.0, 1.5)"),
+        ("global", "symmetric (0.9, 1.0, 1.1)"),
+        ("per_asset", "skewed (0.8, 1.0, 1.5)"),
+        ("per_asset", "symmetric (0.9, 1.0, 1.1)"),
+    }
+    md_text = (out1 / "sensitivity.md").read_text(encoding="utf-8")
+    assert "| Variante | Loi | Moyenne | P50 | P80 | P90 |" in md_text
