@@ -351,6 +351,10 @@ carveout report --format markdown --report-output output/decision_report.md
 
 ## 8 · REST API Reference
 
+Interactive OpenAPI (Swagger) documentation is available at `http://127.0.0.1:8000/docs`:
+
+![FastAPI Swagger OpenAPI Documentation](docs/screenshots/16_fastapi_swagger_docs.png)
+
 | Method | Endpoint | Auth | Description |
 |---|---|---|---|
 | `GET` | `/` | Public | Unified 6-tab Web UI |
