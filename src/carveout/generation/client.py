@@ -26,6 +26,7 @@ def generate_narrative(
     known_asset_ids: set[str],
     known_wave_numbers: set[int],
     log_name: str,
+    logs_dir: str | Path | None = None,
 ) -> str:
     """Call Groq for explanatory prose; reject unknown references and retry once."""
     try:
@@ -45,7 +46,7 @@ def generate_narrative(
         raise RuntimeError("Set GROQ_MODEL to a model ID to enable Groq generation.")
     # Keep retries here so rate-limit headers and recovery logs are handled once.
     client = Groq(api_key=api_key, max_retries=0)
-    logs = project_root / "logs"
+    logs = Path(logs_dir) if logs_dir is not None else project_root / "logs"
     logs.mkdir(parents=True, exist_ok=True)
     request_payload = {"model": model, "prompt": prompt, "input": payload}
     input_path = logs / f"{log_name}.input.json"

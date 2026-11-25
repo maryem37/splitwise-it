@@ -103,7 +103,7 @@ def test_groq_narrative_retries_unknown_asset_without_network(tmp_path, monkeypa
     prompt.write_text("Return a JSON narrative.", encoding="utf-8")
 
     log_name = f"test-groq-{tmp_path.name}"
-    arguments = (prompt, {"known_non_asset_ids": []}, {"APP-01"}, {1}, log_name)
+    arguments = (prompt, {"known_non_asset_ids": []}, {"APP-01"}, {1}, log_name, tmp_path / "logs")
     narrative = generate_narrative(*arguments)
 
     assert narrative == "The cutover follows its dependencies."
