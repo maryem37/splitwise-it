@@ -36,6 +36,7 @@ flowchart LR
     end
 
     EV["evaluate.py\n(evaluation/comparison.md)"]
+    MCP["mcp_server.py\n(read-only MCP stdio tools)"]
 
     P --> L --> G
     L --> S
@@ -55,6 +56,11 @@ flowchart LR
     S --> EV
     Q --> EV
     E --> EV
+    L --> MCP
+    G --> MCP
+    S --> MCP
+    Q --> MCP
+    M --> MCP
 ```
 
 ---
@@ -166,4 +172,5 @@ When `--ai` is enabled:
 | `src/carveout/generation/client.py` | Optional Groq client (`temperature=0`, strict JSON, 429 retry, log cache) |
 | `src/carveout/generation/guardrails.py` | Reference, date, and semantic claim validation |
 | `src/carveout/evaluate.py` | Expert comparison, markdown hallucination scan, robustness check |
+| `src/carveout/mcp_server.py` | Optional read-only MCP tools served over local stdio |
 | `src/carveout/cli.py` | CLI entry point (`carveout <command>`) |

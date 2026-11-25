@@ -18,9 +18,11 @@ dependencies = [
 dev = ["pytest>=8.0"]
 ai = ["groq>=0.11", "python-dotenv>=1.0"]
 neo4j = ["neo4j>=5.0"]
+mcp = ["mcp>=1.9,<2"]
 
 [project.scripts]
 carveout = "carveout.cli:main"
+carveout-mcp = "carveout.mcp_server:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

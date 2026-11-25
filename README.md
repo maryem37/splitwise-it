@@ -21,9 +21,10 @@
 8. [Data model](#8--data-model)
 9. [Configuration](#9--configuration)
 10. [AI narrative generation (optional)](#10--ai-narrative-generation-optional)
-11. [Neo4j & Cypher graph analytics](#11--neo4j--cypher-graph-analytics)
-12. [Running tests](#12--running-tests)
-13. [Contributing / pushing changes](#13--contributing--pushing-changes)
+11. [MCP server (optional)](#11--mcp-server-optional)
+12. [Neo4j & Cypher graph analytics](#12--neo4j--cypher-graph-analytics)
+13. [Running tests](#13--running-tests)
+14. [Contributing / pushing changes](#14--contributing--pushing-changes)
 
 ---
 
@@ -99,6 +100,7 @@ d:\graph\
 │   ├── neo4j_store.py           ← Neo4j loader, query runner & Cypher exporter
 │   ├── cypher_queries.py        ← 12 named Cypher analytics queries
 │   ├── cli.py                   ← CLI entry point (carveout <command>)
+│   ├── mcp_server.py            ← Read-only MCP tools over stdio
 │   └── generation/
 │       ├── client.py            ← Groq API client (AI mode)
 │       ├── documents.py         ← Jinja2 runbook + plan generation
@@ -154,6 +156,11 @@ copy .env.example .env        # then edit .env and set GROQ_API_KEY=...
 **Optional — Neo4j graph database integration**:
 ```powershell
 py -m pip install -e ".[neo4j]"
+```
+
+**Optional — local read-only MCP server**:
+```powershell
+py -m pip install -e ".[mcp]"
 ```
 
 ---
@@ -351,7 +358,44 @@ The AI **never changes the data** — it only narrates what the algorithm alread
 
 ---
 
-## 11 · Neo4j & Cypher graph analytics
+## 11 · MCP server (optional)
+
+The optional `carveout-mcp` server exposes the deterministic planner over the
+Model Context Protocol's local `stdio` transport. It is read-only: tools
+inspect YAML inputs and compute results in memory without writing generated
+files or calling an LLM.
+
+Available tools:
+
+| Tool | Purpose |
+|---|---|
+| `portfolio_summary` | Portfolio counts and planning dates |
+| `list_assets` | Asset metadata, filterable by type, owner, and sensitivity |
+| `asset_dependencies` | Prerequisites and dependants for one asset |
+| `compute_plan` | Strategies, waves, cycles, metrics, and conflicts |
+
+After installing the `mcp` extra, configure the local server in VS Code:
+
+```json
+{
+  "servers": {
+    "carveout": {
+      "type": "stdio",
+      "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
+      "args": ["-m", "carveout.mcp_server"],
+      "env": {
+        "CARVEOUT_PORTFOLIO": "${workspaceFolder}\\data\\portfolio_v1.yaml"
+      }
+    }
+  }
+}
+```
+
+`CARVEOUT_PORTFOLIO`, `CARVEOUT_RULES`, and `CARVEOUT_CONSTRAINTS` may point
+to alternate local input files. No portfolio paths are accepted as tool
+arguments.
+
+## 12 · Neo4j & Cypher graph analytics
 
 The project includes a full **Neo4j** integration (`src/carveout/neo4j_store.py`) and a catalogue of **12 named Cypher queries** (`src/carveout/cypher_queries.py`).
 
@@ -395,7 +439,7 @@ carveout neo4j-query --query cycles
 
 ---
 
-## 12 · Running tests
+## 13 · Running tests
 
 ```powershell
 .venv\Scripts\Activate.ps1
@@ -412,7 +456,7 @@ Test modules:
 
 ---
 
-## 13 · Contributing / pushing changes
+## 14 · Contributing / pushing changes
 
 ```powershell
 # Stage everything (new files + modifications)
