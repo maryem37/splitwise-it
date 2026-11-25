@@ -74,7 +74,7 @@ portfolio_v1.yaml   ──►  loader.py  ──►  graph.py (NetworkX DiGraph)
                        runbooks)          graph.html
 ```
 
-**Key design principle:** the algorithm is fully deterministic. No LLM is involved in planning — AI is an optional layer that wraps computed results with human-readable narrative.
+**Key design principle:** the algorithm is fully deterministic. No LLM is involved in planning — AI is an optional layer that wraps computed results with human-readable narrative. See [docs/architecture.md](docs/architecture.md) for the full system architecture and Mermaid diagrams.
 
 ---
 
