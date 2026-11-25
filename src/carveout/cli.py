@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from .graph import build_graph, export_graph, export_html
+from .dashboard import export_dashboard
 from .generation.documents import generate_documents
 from .generation.documents import build_risk_register
 from .evaluate import evaluate_results, evaluate_robustness
@@ -97,6 +98,8 @@ def run(args: argparse.Namespace) -> int:
             _write_json(metrics, output_dir / "metrics.json")
         if args.command in ("generate", "run-all"):
             generate_documents(portfolio, decisions, sequencing, metrics, output_dir, use_ai=args.ai)
+            risks_for_ui = build_risk_register(portfolio, sequencing)
+            export_dashboard(portfolio, decisions, sequencing, metrics, risks_for_ui, output_dir / "dashboard.html")
         if args.command in ("evaluate", "run-all"):
             risks = build_risk_register(portfolio, sequencing)
             evaluate_results(portfolio, expert_path, decisions, sequencing, risks, ROOT / "evaluation", docs_dir=output_dir)

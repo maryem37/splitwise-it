@@ -6,6 +6,7 @@ from types import ModuleType, SimpleNamespace
 
 import pytest
 
+from carveout.dashboard import export_dashboard
 from carveout.evaluate import evaluate_results, evaluate_robustness
 from carveout.generation.documents import build_risk_register, generate_documents
 from carveout.generation.client import generate_narrative
@@ -224,3 +225,30 @@ def test_evaluate_matches_risks_by_theme_and_scans_markdown_hallucinations(tmp_p
     assert summary["risk_coverage_percent"] > 0
     assert summary["hallucination_count"] == 1
     assert summary["hallucination_assets"] == ["APP-999"]
+
+
+def test_dashboard_tracks_pipeline_data_and_has_svg_arrowheads(tmp_path):
+    portfolio = load_portfolio(ROOT / "data/portfolio_v1.yaml")
+    strategies = assess_strategies(portfolio, ROOT / "config/strategy_rules.yaml")
+    sequencing = compute_waves(portfolio, ROOT / "config/constraints.yaml", strategies)
+    metrics = calculate_metrics(portfolio, sequencing)
+    risks = build_risk_register(portfolio, sequencing)
+
+    dash_path = export_dashboard(portfolio, strategies, sequencing, metrics, risks, tmp_path / "dashboard.html")
+    html = dash_path.read_text(encoding="utf-8")
+
+    assert '"marker"' in html
+    assert "marker-end" in html
+    assert metrics["latest_planned_completion"] in html
+
+    # Mutate effort_weeks on INF-01 and verify dashboard updates dynamically
+    for asset in portfolio.assets:
+        if asset.id == "INF-01":
+            asset.effort_weeks = 20
+    seq2 = compute_waves(portfolio, ROOT / "config/constraints.yaml", strategies)
+    metrics2 = calculate_metrics(portfolio, seq2)
+    risks2 = build_risk_register(portfolio, seq2)
+    dash2 = export_dashboard(portfolio, strategies, seq2, metrics2, risks2, tmp_path / "dashboard2.html").read_text(encoding="utf-8")
+
+    assert metrics2["latest_planned_completion"] != metrics["latest_planned_completion"]
+    assert metrics2["latest_planned_completion"] in dash2
