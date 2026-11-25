@@ -1,11 +1,14 @@
 # Carve-out Copilot
 
-> **Deterministic IT separation planner powered by dependency-graph analysis.**
-> Built for the *Nordia Retail* carve-out from Atlas Group — 30 assets, a six-wave current plan, TSA cost visibility and conflict detection.
+> **Deterministic IT separation planner powered by dependency-graph analysis, multi-agent orchestration and constraint-based optimization.**
+>
+> Built for the *Nordia Retail* carve-out from Atlas Group — 30 assets, dependency-aware migration planning, TSA cost visibility, conflict detection and AI-assisted decision support.
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Pipeline](https://img.shields.io/badge/pipeline-carveout%20run--all-orange.svg)](#5--pipeline-commands)
+[![Agents](https://img.shields.io/badge/agents-LangGraph-purple.svg)](https://www.langchain.com/langgraph)
+[![Optimization](https://img.shields.io/badge/optimization-OR--Tools-blue.svg)](https://developers.google.com/optimization)
 
 ---
 
@@ -20,71 +23,101 @@
 7. [Screenshots](#7--screenshots)
 8. [Data model](#8--data-model)
 9. [Configuration](#9--configuration)
-10. [AI narrative generation (optional)](#10--ai-narrative-generation-optional)
-11. [MCP server (optional)](#11--mcp-server-optional)
+10. [AI narrative generation](#10--ai-narrative-generation-optional)
+11. [MCP server](#11--mcp-server-optional)
 12. [Neo4j & Cypher graph analytics](#12--neo4j--cypher-graph-analytics)
-13. [Running tests](#13--running-tests)
-14. [Contributing / pushing changes](#14--contributing--pushing-changes)
+13. [Agentic architecture and optimization](#13--agentic-architecture-and-optimization)
+14. [Evaluation and human-in-the-loop](#14--evaluation-and-human-in-the-loop)
+15. [Running tests](#15--running-tests)
+16. [Contributing](#16--contributing--pushing-changes)
+17. [License](#license)
 
 ---
 
 ## 1 · What is this project?
 
-**Carve-out Copilot** is a Python toolkit that automates the planning of an IT portfolio separation — the kind of work needed when a business unit is sold, spun off, or legally carved out of a parent company.
+**Carve-out Copilot** is a Python toolkit designed to automate and support IT portfolio separation planning — the process required when a business unit is sold, spun off, or legally separated from its parent company.
+
+The project uses a fictional enterprise scenario: **Nordia Retail**, a business being separated from **Atlas Group**.
+
+An IT carve-out involves identifying which applications, databases and infrastructure components must be migrated, rebuilt, cloned, retired or temporarily retained through Transitional Service Agreements (TSAs).
 
 Given a YAML description of:
-- **Assets** (apps, databases, infrastructure)
-- **Dependencies** between them
-- **TSA services** (Transitional Service Agreements — temporary services the parent keeps running for the buyer)
-- **Licences** that may expire during the transition
-- **Planning constraints** (wave size, stabilisation gaps, freeze periods)
 
-…the tool deterministically computes:
+- **Assets:** applications, databases and infrastructure.
+- **Dependencies:** technical relationships between assets.
+- **TSA services:** temporary services maintained by the parent company.
+- **Licences:** software licences that may expire during the transition.
+- **Planning constraints:** wave capacity, stabilisation gaps and freeze periods.
+- **Strategy rules:** conditions used to determine the appropriate exit strategy.
 
-| Output | Description |
+The system computes a dependency-aware separation plan and provides reports, runbooks, an interactive dashboard and optional analytical integrations.
+
+### Main capabilities
+
+| Capability | Description |
 |---|---|
-| **Migration waves** | Topologically sorted asset groups that respect all dependencies |
-| **Strategy per asset** | Clone / Migrate / Rebuild / Retire / Retain-under-TSA |
-| **Conflicts** | TSA expirations, licence clashes, circular dependencies |
-| **TSA cost estimate** | Months × monthly rate per TSA service |
-| **Runbooks** | Markdown cutover guides per wave |
-| **Interactive dashboard** | Self-contained HTML with graph, Gantt, risk register |
+| Dependency analysis | Direct and transitive dependencies, impact analysis and cycle detection |
+| Migration planning | Deterministic, dependency-aware migration waves |
+| Strategy assessment | Clone, Migrate, Rebuild, Retire and Retain-under-TSA |
+| Conflict detection | TSA deadlines, licence expirations and circular dependencies |
+| TSA cost estimation | Estimated service cost based on duration and monthly rates |
+| Runbook generation | Markdown cutover guides for each migration wave |
+| Interactive dashboard | Offline HTML dashboard with graph, Gantt and risk register |
+| Multi-agent investigation | Specialized LangGraph agents using deterministic Python tools |
+| Schedule optimization | OR-Tools CP-SAT scenario optimization |
+| Workflow evaluation | Evidence checks, planning validation and critic decisions |
+| Human approval | Interrupt-based human-in-the-loop workflow |
+| Graph analytics | Optional Neo4j integration and named Cypher queries |
+| MCP integration | Optional read-only Model Context Protocol server |
+
+**Key design principle:** deterministic algorithms remain the source of truth for planning, scheduling, validation and financial calculations. LLMs help interpret requests and explain results, but do not override deterministic planning constraints.
 
 ---
 
 ## 2 · How it works
 
-```
-portfolio_v1.yaml   ──►  loader.py  ──►  graph.py (NetworkX DiGraph)
-                                               │
-                              ┌────────────────┤
-                              ▼                ▼
-                       strategy.py      sequencing.py
-                       (rules-based)    (topological sort
-                       per-asset        + conflict detection)
-                       strategy                │
-                              └────────────────┤
-                                               ▼
-                                         metrics.py
-                                         (TSA cost, KPIs)
-                                               │
-                              ┌────────────────┤
-                              ▼                ▼
-                       documents.py      export_html()
-                       (Jinja2            dashboard.html
-                       runbooks)          graph.html
+### 2.1 Deterministic planning pipeline
+
+The original planning pipeline validates the portfolio, constructs the dependency graph, assigns strategies, schedules migration waves and calculates the resulting metrics.
+
+```text
+portfolio_v1.yaml
+        |
+        v
+    loader.py
+        |
+        v
+    graph.py
+    NetworkX DiGraph
+        |
+        +----------------------+
+        |                      |
+        v                      v
+  strategy.py            sequencing.py
+  Rules-based             Dependency-aware
+  assessment              wave computation
+        |                      |
+        +----------+-----------+
+                   |
+                   v
+               metrics.py
+             TSA costs / KPIs
+                   |
+          +--------+--------+
+          |                 |
+          v                 v
+     documents.py       dashboard.py
+     Jinja2 reports     Offline HTML
+     and runbooks       visualizations
 ```
 
-### Project architecture
+### 2.2 Overall system architecture
 
-The planner separates deterministic decisions from optional integrations and
-presentation. The core pipeline validates the portfolio, builds its dependency
-graph, assigns strategies, schedules waves, and derives metrics. Documents,
-the dashboard, evaluation, Neo4j, and the read-only MCP server consume those
-computed results.
+The planner separates deterministic computation, agent orchestration, evaluation and optional integrations.
 
 ```mermaid
-flowchart LR
+flowchart TB
     subgraph Inputs
         P["Portfolio YAML"]
         R["Strategy rules"]
@@ -92,153 +125,265 @@ flowchart LR
         E["Expert reference plan"]
     end
 
-    subgraph Core["Deterministic planning engine"]
-        L["loader.py<br/>Pydantic validation"]
-        G["graph.py<br/>NetworkX graph and cycles"]
-        S["strategy.py<br/>Ordered rules"]
-        Q["sequencing.py<br/>Dependency-aware waves"]
-        M["metrics.py<br/>TSA cost and KPIs"]
+    subgraph Core["Deterministic Planning Engine"]
+        L["Portfolio Loader"]
+        G["NetworkX Dependency Graph"]
+        S["Strategy Assessment"]
+        Q["Migration Wave Sequencing"]
+        M["TSA Metrics and KPIs"]
+        V["Planning Validation"]
     end
 
-    subgraph Deliverables
-        D["documents.py + Jinja2<br/>Plan, runbooks, CSV"]
-        UI["dashboard.py<br/>Offline dashboard"]
-        EV["evaluate.py<br/>Expert comparison"]
+    subgraph Agents["LangGraph Multi-Agent Workflow"]
+        SUP["Supervisor Agent"]
+        DEP["Dependency Agent"]
+        STR["Strategy Agent"]
+        RISK["Risk Agent"]
+        OPT["Optimization Agent"]
+        EVAL["Evaluation Agent"]
+        CRIT["Critic Agent"]
+        CORR["Correction Workflow"]
+        APPROVAL["Human Approval"]
     end
 
-    subgraph Integrations["Optional integrations"]
-        AI["Groq narrative<br/>Strict JSON + guardrails"]
+    subgraph Outputs["Deliverables"]
+        D["Reports and Runbooks"]
+        UI["Interactive Dashboard"]
+        BENCH["Evaluation Benchmarks"]
+    end
+
+    subgraph Integrations["Optional Integrations"]
+        AI["Groq Narrative Generation"]
         N4["Neo4j / Cypher"]
-        MCP["MCP server<br/>Read-only stdio"]
+        MCP["Read-only MCP Server"]
+        CPSAT["OR-Tools CP-SAT"]
     end
 
-    P --> L --> G
+    P --> L
+    L --> G
     L --> S
     R --> S
     G --> Q
     S --> Q
     C --> Q
     Q --> M
+    Q --> V
+
+    SUP --> DEP
+    SUP --> STR
+    SUP --> RISK
+    SUP --> OPT
+
+    DEP --> G
+    STR --> S
+    RISK --> V
+    OPT --> CPSAT
+    CPSAT --> V
+
+    DEP --> EVAL
+    STR --> EVAL
+    RISK --> EVAL
+    OPT --> EVAL
+    V --> EVAL
+
+    EVAL --> CRIT
+    CRIT --> CORR
+    CORR --> EVAL
+    CRIT --> APPROVAL
+
+    M --> D
     Q --> D
     S --> D
-    M --> D
+    EVAL --> BENCH
+
     Q --> UI
     M --> UI
     S --> UI
-    D -. "optional --ai" .-> AI
+
+    D -.-> AI
     G --> N4
     Q --> N4
-    S --> EV
-    Q --> EV
-    E --> EV
     L --> MCP
     G --> MCP
-    S --> MCP
     Q --> MCP
-    M --> MCP
 ```
 
-**Key design principle:** the algorithm is fully deterministic. No LLM is involved in planning — AI is an optional layer that wraps computed results with human-readable narrative. See [docs/architecture.md](docs/architecture.md) for the full system architecture and Mermaid diagrams.
+### 2.3 Two complementary planning approaches
+
+The project provides two distinct planning approaches.
+
+| Approach | Purpose | Main technology |
+|---|---|---|
+| Deterministic planner | Establish a reproducible dependency-aware baseline | NetworkX and Python |
+| Constraint optimizer | Explore alternative feasible migration schedules | OR-Tools CP-SAT |
+
+The deterministic planner groups assets according to dependency ordering and planning rules.
+
+The CP-SAT optimizer explores alternative assignments while enforcing modeled constraints, including dependency ordering, strongly connected component coupling, wave capacity and scenario delay requirements.
+
+The two approaches are complementary. Their scheduling strategies differ, so their wave counts and estimated TSA costs can differ.
+
+### 2.4 Why combine deterministic planning and agents?
+
+A conventional planner computes a schedule but does not necessarily explain the consequences of a business question such as:
+
+> What happens if we delay APP-06 by three months?
+
+The agentic layer coordinates specialized investigations:
+
+1. The Supervisor interprets the request.
+2. The Dependency Agent investigates affected assets and dependencies.
+3. The Strategy Agent retrieves deterministic strategy assessments.
+4. The Risk Agent identifies relevant risks and conflicts.
+5. The Optimization Agent evaluates alternative schedules when required.
+6. The Evaluation Agent checks evidence and planning validity.
+7. The Critic Agent determines whether the result is acceptable, needs correction or requires human review.
+8. The approval workflow can pause for a human decision.
+
+Agents call Python tools that use the existing planning engine. They do not replace the underlying algorithms.
 
 ---
 
 ## 3 · Project structure
 
-```
-d:\graph\
+```text
+splitwise-it/
+│
 ├── data/
-│   ├── portfolio_v1.yaml        ← Main portfolio definition
-│   ├── portfolio_v2.yaml        ← Robustness-test variant
-│   ├── portfolio_v3.yaml        ← Independent Helios blind-test input; schema validation only
-│   └── expert_plan_v1.yaml      ← Hand-authored reference plan (for evaluation)
+│   ├── portfolio_v1.yaml
+│   ├── portfolio_v2.yaml
+│   ├── portfolio_v3.yaml
+│   └── expert_plan_v1.yaml
+│
 ├── config/
-│   ├── strategy_rules.yaml      ← Rules for strategy assignment
-│   └── constraints.yaml         ← Wave size, freeze periods, gap weeks
+│   ├── strategy_rules.yaml
+│   └── constraints.yaml
+│
 ├── src/carveout/
-│   ├── models.py                ← Pydantic data model (Asset, Relationship, TSA…)
-│   ├── loader.py                ← YAML loader + portfolio validation
-│   ├── graph.py                 ← NetworkX graph, dependency queries, HTML export
-│   ├── strategy.py              ← Rules-based strategy assignment per asset
-│   ├── sequencing.py            ← Wave computation + conflict detection
-│   ├── metrics.py               ← TSA cost, KPI aggregation
-│   ├── neo4j_store.py           ← Neo4j loader, query runner & Cypher exporter
-│   ├── cypher_queries.py        ← 12 named Cypher analytics queries
-│   ├── cli.py                   ← CLI entry point (carveout <command>)
-│   ├── mcp_server.py            ← Read-only MCP tools over stdio
+│   ├── models.py
+│   ├── loader.py
+│   ├── graph.py
+│   ├── strategy.py
+│   ├── sequencing.py
+│   ├── metrics.py
+│   ├── sensitivity.py
+│   ├── neo4j_store.py
+│   ├── cypher_queries.py
+│   ├── cli.py
+│   ├── mcp_server.py
+│   ├── config.py
+│   │
+│   ├── agents/
+│   │   ├── supervisor.py
+│   │   ├── dependency_agent.py
+│   │   ├── strategy_agent.py
+│   │   ├── risk_agent.py
+│   │   ├── optimization_agent.py
+│   │   ├── evaluation_agent.py
+│   │   └── critic_agent.py
+│   │
+│   ├── tools/
+│   │   ├── graph_tools.py
+│   │   ├── planning_tools.py
+│   │   ├── risk_tools.py
+│   │   ├── strategy_tools.py
+│   │   ├── optimization_tools.py
+│   │   ├── neo4j_tools.py
+│   │   └── correction_tools.py
+│   │
+│   ├── workflows/
+│   │   ├── state.py
+│   │   ├── routing.py
+│   │   ├── approval.py
+│   │   └── graph.py
+│   │
+│   ├── optimization/
+│   │   ├── models.py
+│   │   ├── solver.py
+│   │   ├── validation.py
+│   │   └── scenarios.py
+│   │
+│   ├── evaluation/
+│   │   ├── metrics.py
+│   │   └── benchmarks.py
+│   │
 │   └── generation/
-│       ├── client.py            ← Groq API client (AI mode)
-│       ├── documents.py         ← Jinja2 runbook + plan generation
-│       └── guardrails.py        ← Output validation
+│       ├── client.py
+│       ├── documents.py
+│       └── guardrails.py
+│
 ├── templates/
-│   ├── cutover_runbook.md.j2    ← Per-wave runbook template
-│   └── separation_plan.md.j2   ← Full plan narrative template
-├── output/                      ← Generated files (git-tracked for demo)
-│   ├── dashboard.html           ← ⭐ Interactive separation dashboard
-│   ├── graph.html               ← vis-network force-directed graph
-│   ├── waves.json               ← Computed wave sequencing
-│   ├── metrics.json             ← KPIs and TSA cost breakdown
-│   ├── strategy_assessment.json ← Per-asset strategy decisions
-│   ├── dependency_graph.json    ← NetworkX node-link JSON
-│   ├── graph.cypher             ← Standalone Neo4j / Cypher import script
-│   └── runbooks/wave-0*.md      ← Cutover runbooks per wave
-├── evaluation/                  ← Pipeline vs expert comparison
-├── tests/                       ← pytest test suite
-├── schema/portfolio.schema.json ← JSON Schema for portfolio validation
-└── docs/screenshots/            ← Dashboard screenshots
+│   ├── cutover_runbook.md.j2
+│   └── separation_plan.md.j2
+│
+├── output/
+│   ├── dashboard.html
+│   ├── graph.html
+│   ├── waves.json
+│   ├── metrics.json
+│   ├── strategy_assessment.json
+│   ├── dependency_graph.json
+│   ├── graph.cypher
+│   └── runbooks/
+│
+├── evaluation/
+│
+├── tests/
+│   ├── test_loader.py
+│   ├── test_planning.py
+│   ├── test_sensitivity.py
+│   ├── test_generation.py
+│   ├── test_mcp_server.py
+│   ├── test_tools.py
+│   ├── test_agents.py
+│   ├── test_optimization.py
+│   ├── test_evaluation.py
+│   ├── test_critic.py
+│   ├── test_correction_loop.py
+│   └── test_human_approval.py
+│
+├── schema/
+│   └── portfolio.schema.json
+│
+├── docs/
+│   ├── architecture.md
+│   └── screenshots/
+│
+├── pyproject.toml
+├── README.md
+└── LICENSE
 ```
+
+*The structure describes the principal project modules. Optional integrations and generated files depend on installed extras and executed commands.*
 
 ---
 
 ## 4 · Installation
 
-**Requirements:** Python 3.11 or newer, Git.
+### Requirements
+
+- Python 3.11 or newer
+- Git
+- Windows, Linux or macOS
+
+### Clone the repository
 
 ```powershell
-# 1 — Clone the repository
 git clone https://github.com/maryem37/splitwise-it.git
 cd splitwise-it
+```
 
-# 2 — Create and activate a virtual environment
+### Create a virtual environment
+
+```powershell
 py -m venv .venv
 .venv\Scripts\Activate.ps1
-
-# 3 — Install the project (editable, with dev dependencies)
-py -m pip install -e ".[dev]"
 ```
 
-> **Windows execution policy:** if PowerShell blocks `.ps1` scripts, run once:
-> ```powershell
-> Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
-> ```
-
-**Optional — AI narrative generation** (requires a free [Groq](https://console.groq.com) API key):
-```powershell
-py -m pip install -e ".[ai]"
-copy .env.example .env        # then edit .env and set GROQ_API_KEY=...
-```
-
-**Optional — Neo4j graph database integration**:
-```powershell
-py -m pip install -e ".[neo4j]"
-```
-
-**Optional — local read-only MCP server**:
-```powershell
-py -m pip install -e ".[mcp]"
-```
-
-**Optional — Agentic LangGraph orchestration & OR-Tools CP-SAT optimization**:
-```powershell
-py -m pip install -e ".[agents,optimization]"
-```
-
----
-
-## 5 · Pipeline commands
-
-All commands accept `--portfolio`, `--output`, `--rules`, `--constraints` overrides.
+If PowerShell blocks activation scripts:
 
 ```powershell
+<<<<<<< HEAD
 # Activate venv first
 .venv\Scripts\Activate.ps1
 
@@ -568,6 +713,8 @@ Test modules:
 | `tests/test_operational_reliability.py` | SQLite connection cleanup, WAL mode, path validation, CLI error handling |
 | `tests/test_decision_intelligence.py` | Decision provenance model, explainable wave planning, baseline vs opt comparison |
 | `tests/test_scenarios_and_reporting.py` | Isolated what-if scenarios, YAML immutability, Markdown/JSON decision reports |
+| `tests/test_api_and_e2e.py` | FastAPI endpoints, approval authorization, restart recovery, and E2E user journey |
+| `tests/test_phase6_operational.py` | Liveness/readiness probes, API telemetry metrics, and config validation |
 
 ---
 
@@ -619,6 +766,30 @@ Carve-out Copilot includes an optional multi-agent orchestration layer (`[agents
   - `carveout scenario [--delay-asset <ID>] [--delay-weeks <WEEKS>] [--rate-multiplier <MULT>]`
   - `carveout report [--format markdown|json] [--report-output <PATH>]`
 
+### Phase 5 · FastAPI Backend, Web UI & Docker Deployment
+
+- **REST API (`src/carveout/api/app.py`):** FastAPI service exposing:
+  - `GET /api/health` (liveness probe) & `GET /api/ready` (readiness probe checking SQLite & portfolio availability)
+  - `GET /api/metrics` (lightweight in-process HTTP & workflow telemetry)
+  - `GET /api/portfolios` and `GET /api/portfolios/{portfolio_id}` (allowlisted IDs prevent path traversal)
+  - `POST /api/workflows`, `GET /api/workflows/{thread_id}`, `GET /api/workflows/{thread_id}/status`, `POST /api/workflows/{thread_id}/resume`
+  - `GET /api/assets/{asset_id}/explanation`, `GET /api/comparisons`, `POST /api/scenarios`, `GET /api/reports/{portfolio_id}`
+- **Interactive Web UI (`src/carveout/api/ui.py`):** Served at `/` with tabs for Portfolio Overview, Workflow Monitoring, Decision Intelligence, Human Review, and Reports.
+- **Security Controls (`src/carveout/api/security.py`):**
+  - `CARVEOUT_APPROVAL_TOKEN`: Optional bearer/header token (`X-Approval-Token`) required for `POST /api/workflows/{thread_id}/resume` when configured.
+  - `CARVEOUT_CORS_ORIGINS`: Configurable CORS allowlist (defaults to `http://localhost:8000,http://127.0.0.1:8000`).
+- **Running Locally (PowerShell):**
+  ```powershell
+  pip install -e ".[agents,optimization,api]"
+  carveout-api
+  # Open http://127.0.0.1:8000 (UI) or http://127.0.0.1:8000/docs (OpenAPI)
+  ```
+- **Docker Deployment (`Dockerfile`, `docker-compose.yml`):**
+  ```powershell
+  docker compose up --build -d
+  ```
+  Persists SQLite checkpoints in the `carveout_checkpoints` volume (`/app/.carveout/checkpoints.sqlite`) across container restarts.
+
 ---
 
 ## 14 · Contributing / pushing changes
@@ -641,3 +812,6 @@ Repository: **https://github.com/maryem37/splitwise-it**
 ## Licence
 
 [MIT](LICENSE) — Maryem, 2026.
+=======
+Set-ExecutionPolicy -Scope
+>>>>>>> 55661f939150c715af2523d2b3aef05cb0000d54

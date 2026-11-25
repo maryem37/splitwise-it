@@ -1,0 +1,20 @@
+services:
+  carveout-api:
+    build: .
+    container_name: carveout-copilot
+    ports:
+      - "8000:8000"
+    environment:
+      - CARVEOUT_CHECKPOINT_DB=/app/.carveout/checkpoints.sqlite
+      - CARVEOUT_LOG_LEVEL=${CARVEOUT_LOG_LEVEL:-INFO}
+      - CARVEOUT_LOG_JSON=${CARVEOUT_LOG_JSON:-false}
+      - CARVEOUT_APPROVAL_TOKEN=${CARVEOUT_APPROVAL_TOKEN:-}
+      - CARVEOUT_CORS_ORIGINS=${CARVEOUT_CORS_ORIGINS:-http://localhost:8000,http://127.0.0.1:8000}
+      - GROQ_API_KEY=${GROQ_API_KEY:-}
+    volumes:
+      - carveout_checkpoints:/app/.carveout
+      - ./output:/app/output
+    restart: unless-stopped
+
+volumes:
+  carveout_checkpoints:

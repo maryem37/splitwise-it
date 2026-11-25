@@ -1,0 +1,13 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.git/
+.env
+.carveout/
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+output/
+logs/
+docs/screenshots/

@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 
 class OptimizationConfig(BaseModel):
     max_solve_time_seconds: float = 10.0
-    num_search_workers: int = 4
+    num_search_workers: int = 1
     random_seed: int = 42
     max_waves: int = 12
     max_assets_per_wave: int = 8
