@@ -214,9 +214,12 @@ def generate_documents(
         runbook_path = output / "runbooks" / f"wave-{wave['wave']:02d}.md"
         runbook_path.parent.mkdir(parents=True, exist_ok=True)
         if use_ai:
+            retired_ids = [aid for aid in wave["assets"] if strategy_by_id.get(aid) == "retire"]
             narrative = generate_narrative(
                 ROOT / "prompts" / "runbook_narrative_v1.md",
                 {"wave": wave, "assets": [asset.model_dump(mode="json") for asset in wave_assets],
+                 "retired_asset_ids": retired_ids,
+                 "is_final_wave": wave["wave"] == max(wave_numbers, default=0),
                  "known_non_asset_ids": [item.id for item in portfolio.licences]
                  + [item.id for item in portfolio.tsa_services]},
                 known_assets, wave_numbers, f"runbook-wave-{wave['wave']:02d}",

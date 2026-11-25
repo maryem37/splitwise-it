@@ -10,7 +10,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict
 
-from .guardrails import validate_document_references
+from .guardrails import validate_document_references, validate_narrative_content
 
 
 class NarrativeOutput(BaseModel):
@@ -85,6 +85,7 @@ def generate_narrative(
             try:
                 response = client.chat.completions.create(
                     model=model,
+                    temperature=0,
                     max_tokens=2500,
                     messages=[
                         {
@@ -147,6 +148,13 @@ def _validate_narrative(
     unknown_mentions = sorted(set(mention_pattern.findall(result.narrative)) - all_known_ids)
     if unknown_mentions:
         raise ValueError(f"Narrative mentions unknown identifiers: {unknown_mentions}")
+    known_dates = set(re.findall(r"\b\d{4}-\d{2}-\d{2}\b", json.dumps(payload, ensure_ascii=False)))
+    validate_narrative_content(
+        result.narrative,
+        known_dates=known_dates,
+        has_retired_assets=bool(payload.get("retired_asset_ids")),
+        is_final_wave=payload.get("is_final_wave", True),
+    )
     return result.narrative
 
 

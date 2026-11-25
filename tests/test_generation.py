@@ -10,7 +10,7 @@ from carveout.evaluate import evaluate_robustness
 from carveout.generation.documents import build_risk_register, generate_documents
 from carveout.generation.client import generate_narrative
 from carveout.generation import client as groq_client
-from carveout.generation.guardrails import validate_document_references
+from carveout.generation.guardrails import validate_document_references, validate_narrative_content
 from carveout.loader import load_portfolio
 from carveout.metrics import calculate_metrics
 from carveout.sequencing import compute_waves
@@ -109,6 +109,7 @@ def test_groq_narrative_retries_unknown_asset_without_network(tmp_path, monkeypa
     assert narrative == "The cutover follows its dependencies."
     assert len(calls) == 3
     assert sleeps == [0.1]
+    assert calls[0]["temperature"] == 0
     assert calls[0]["response_format"]["type"] == "json_schema"
     assert calls[0]["response_format"]["json_schema"]["strict"] is True
     assert "unknown assets" in calls[2]["messages"][1]["content"]
@@ -173,3 +174,28 @@ def test_runbook_steps_use_strategy_specific_verbs(tmp_path):
     tsa_wave_num = next(w["wave"] for w in sequencing["waves"] if "APP-01" in w["assets"])
     tsa_wave = (tmp_path / "runbooks" / f"wave-{tsa_wave_num:02d}.md").read_text(encoding="utf-8")
     assert "Exit TSA once all dependents have moved `APP-01`" in tsa_wave
+
+
+def test_guardrails_reject_ungrounded_claims_and_invented_dates():
+    with pytest.raises(ValueError, match="guarantee"):
+        validate_narrative_content("Guaranteeing uninterrupted service.")
+    with pytest.raises(ValueError, match="uninterrupted"):
+        validate_narrative_content("Provides uninterrupted cutover.")
+    with pytest.raises(ValueError, match="independent"):
+        validate_narrative_content("Each wave is independent of others.")
+    with pytest.raises(ValueError, match="agreement"):
+        validate_narrative_content("Extend the security agreement before cutover.")
+    with pytest.raises(ValueError, match="re-host"):
+        validate_narrative_content("Confirm the DB was re-hosted.", has_retired_assets=True)
+    with pytest.raises(ValueError, match="final"):
+        validate_narrative_content("This is the final wave.", is_final_wave=False)
+    with pytest.raises(ValueError, match="2099-01-01"):
+        validate_narrative_content("Cutover on 2099-01-01.", known_dates={"2027-03-01"})
+
+    # Valid transitional service agreement and known date pass
+    validate_narrative_content(
+        "Transitional service agreement ends on 2027-09-30.",
+        known_dates={"2027-09-30"},
+        has_retired_assets=False,
+        is_final_wave=False,
+    )
