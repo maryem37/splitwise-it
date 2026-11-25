@@ -1,4 +1,5 @@
 from pathlib import Path
+import csv
 import json
 import sys
 from types import ModuleType, SimpleNamespace
@@ -6,7 +7,7 @@ from types import ModuleType, SimpleNamespace
 import pytest
 
 from carveout.evaluate import evaluate_robustness
-from carveout.generation.documents import generate_documents
+from carveout.generation.documents import build_risk_register, generate_documents
 from carveout.generation.client import generate_narrative
 from carveout.generation import client as groq_client
 from carveout.generation.guardrails import validate_document_references
@@ -113,3 +114,43 @@ def test_groq_narrative_retries_unknown_asset_without_network(tmp_path, monkeypa
     assert "unknown assets" in calls[2]["messages"][1]["content"]
     assert generate_narrative(*arguments) == narrative
     assert len(calls) == 3  # A rerun reuses the validated narrative from the logs.
+
+
+def test_tsa_exit_schedule_uses_last_asset_and_cleans_stale_runbooks_and_csv_semicolons(tmp_path):
+    portfolio = load_portfolio(ROOT / "data/portfolio_v1.yaml")
+    strategies = assess_strategies(portfolio, ROOT / "config/strategy_rules.yaml")
+    sequencing = compute_waves(portfolio, ROOT / "config/constraints.yaml", strategies)
+    metrics = calculate_metrics(portfolio, sequencing)
+
+    stale = tmp_path / "runbooks" / "wave-99.md"
+    stale.parent.mkdir(parents=True, exist_ok=True)
+    stale.write_text("stale", encoding="utf-8")
+
+    generate_documents(portfolio, strategies, sequencing, metrics, tmp_path)
+
+    assert not stale.exists()
+
+    with (tmp_path / "tsa_exit_schedule.csv").open(encoding="utf-8-sig") as stream:
+        tsa_rows = {row["tsa_id"]: row for row in csv.DictReader(stream)}
+    # TSA-03 is linked to INF-03 (Wave 1) and APP-10 (Wave 2, effort 2w) -> APP-10 asset completion date
+    app10_wave = next(w for w in sequencing["waves"] if "APP-10" in w["assets"])
+    assert tsa_rows["TSA-03"]["planned_exit"] == app10_wave["asset_completion_dates"]["APP-10"]
+
+    with (tmp_path / "risk_register.csv").open(encoding="utf-8-sig") as stream:
+        risk_rows = list(csv.DictReader(stream))
+    assert all("[" not in row["asset_ids"] for row in risk_rows)
+    assert any(";" in row["asset_ids"] for row in risk_rows)
+
+    risks = build_risk_register(portfolio, sequencing)
+    for conflict in sequencing["conflicts"]:
+        if "asset_id" in conflict:
+            assert any(conflict["asset_id"] in r["asset_ids"] for r in risks)
+
+    missed_seq = {**sequencing, "conflicts": [*sequencing["conflicts"], {
+        "type": "target_tsa_exit_missed",
+        "target_tsa_exit": "2027-12-31",
+        "latest_planned_completion": "2028-02-01",
+        "message": "Latest planned completion 2028-02-01 exceeds target TSA exit 2027-12-31.",
+    }]}
+    missed_risks = build_risk_register(portfolio, missed_seq)
+    assert any("target TSA exit" in r["risk"] for r in missed_risks)

@@ -29,47 +29,89 @@ def _write_csv(path: Path, rows: list[dict[str, Any]], columns: list[str]) -> No
 def build_risk_register(portfolio: Portfolio, waves_result: dict[str, Any]) -> list[dict[str, Any]]:
     asset_by_id = {asset.id: asset for asset in portfolio.assets}
     risks: list[dict[str, Any]] = []
-    conflicts = waves_result["conflicts"]
-    if any(item.get("tsa_id") == "TSA-01" for item in conflicts):
-        risks.append({"id": "R-01", "risk": "Shared ERP separation misses the TSA-01 end date.",
-                      "cause": "ERP/data separation and non-transferable licensing extend beyond the TSA.",
-                      "likelihood": "high", "impact": "critical", "owner": "ERP separation lead",
-                      "mitigation": "Start vendor and data work immediately; agree a contingency operating model.",
-                      "asset_ids": ["APP-01", "DB-01"]})
-    if any(item.get("licence_id") == "LIC-04" for item in conflicts):
-        risks.append({"id": "R-02", "risk": "Payment processing is interrupted by licence expiry.",
-                      "cause": "LIC-04 expires before the payment integration can complete cutover.",
-                      "likelihood": "high", "impact": "critical", "owner": "Payments product owner",
-                      "mitigation": "Secure a bridge licence or replacement and rehearse settlement reconciliation.",
-                      "asset_ids": ["APP-08"]})
+    next_idx = 1
+
+    def _next_id() -> str:
+        nonlocal next_idx
+        rid = f"R-{next_idx:02d}"
+        next_idx += 1
+        return rid
+
+    for conflict in waves_result.get("conflicts", []):
+        ctype = conflict.get("type")
+        if ctype == "licence_expires_before_cutover":
+            aid = conflict["asset_id"]
+            lic_id = conflict["licence_id"]
+            risks.append({
+                "id": _next_id(),
+                "risk": f"{aid} cutover blocked by {lic_id} licence expiry.",
+                "cause": f"{lic_id} expires on {conflict['expiry']} before planned completion {conflict['planned_completion']}.",
+                "likelihood": "high",
+                "impact": "critical",
+                "owner": "Commercial / product owner",
+                "mitigation": "Secure a bridge licence or expedite replacement before expiry.",
+                "asset_ids": [aid],
+            })
+        elif ctype in ("tsa_ends_before_cutover", "tsa_extension_required"):
+            aid = conflict["asset_id"]
+            tsa_id = conflict["tsa_id"]
+            hard = ctype == "tsa_ends_before_cutover"
+            risks.append({
+                "id": _next_id(),
+                "risk": f"{aid} misses {tsa_id} end date ({conflict['tsa_end']}).",
+                "cause": conflict.get("message", f"{aid} requires {tsa_id} past {conflict['tsa_end']}."),
+                "likelihood": "high",
+                "impact": "critical" if hard else "high",
+                "owner": "TSA / separation lead",
+                "mitigation": "Accelerate separation or negotiate a formal TSA extension / contingency.",
+                "asset_ids": [aid],
+            })
+        elif ctype == "target_tsa_exit_missed":
+            risks.append({
+                "id": _next_id(),
+                "risk": f"Programme misses target TSA exit ({conflict['target_tsa_exit']}).",
+                "cause": conflict.get("message", "Latest planned completion exceeds target TSA exit."),
+                "likelihood": "high",
+                "impact": "critical",
+                "owner": "Programme manager",
+                "mitigation": "Parallelise critical-path build work or re-baseline target TSA exit.",
+                "asset_ids": sorted(asset_by_id),
+            })
+        elif ctype == "cycle_exceeds_wave_capacity":
+            members = sorted(conflict.get("assets", []))
+            risks.append({
+                "id": _next_id(),
+                "risk": "Cyclic asset group exceeds wave capacity.",
+                "cause": conflict.get("message", "Strongly connected component exceeds max_assets_per_wave."),
+                "likelihood": "high",
+                "impact": "high",
+                "owner": "Application migration lead",
+                "mitigation": "Decouple cycle or approve temporary wave capacity exception.",
+                "asset_ids": members,
+            })
+
     if any(asset.id == "INF-03" and asset.owner.value == "shared" for asset in portfolio.assets):
-        risks.append({"id": "R-03", "risk": "Shared identity cutover blocks users or applications.",
+        risks.append({"id": _next_id(), "risk": "Shared identity cutover blocks users or applications.",
                       "cause": "INF-03 is a common authentication dependency across the portfolio.",
                       "likelihood": "medium", "impact": "critical", "owner": "Identity lead",
                       "mitigation": "Build target identity in parallel, pilot users, and retain tested rollback.",
                       "asset_ids": ["INF-03"]})
     cycle_groups = cycles(build_graph(portfolio))
     if cycle_groups:
-        risks.append({"id": "R-04", "risk": "A cyclic application cutover leaves inconsistent operations.",
+        risks.append({"id": _next_id(), "risk": "A cyclic application cutover leaves inconsistent operations.",
                       "cause": "Mutually dependent applications must move in the same cutover window.",
                       "likelihood": "medium", "impact": "high", "owner": "Application migration lead",
                       "mitigation": "Rehearse a joint move, agree rollback thresholds, and validate both sides together.",
                       "asset_ids": sorted({asset_id for group in cycle_groups for asset_id in group})})
     sensitive_ids = sorted(asset.id for asset in portfolio.assets if asset.sensitive)
     if sensitive_ids:
-        risks.append({"id": "R-05", "risk": "Sensitive data is exposed or corrupted during migration.",
+        risks.append({"id": _next_id(), "risk": "Sensitive data is exposed or corrupted during migration.",
                       "cause": "Personal or financial data crosses the separation boundary.",
                       "likelihood": "medium", "impact": "critical", "owner": "Data protection officer",
                       "mitigation": "Use encryption, least privilege, masked rehearsals, and signed reconciliation evidence.",
                       "asset_ids": sensitive_ids})
-    if any(item.get("tsa_id") == "TSA-02" for item in conflicts):
-        risks.append({"id": "R-06", "risk": "HR and payroll service is unavailable after TSA-02 expires.",
-                      "cause": "The shared HR platform has a non-transferable licence and limited extension capacity.",
-                      "likelihood": "high", "impact": "high", "owner": "HR transformation lead",
-                      "mitigation": "Configure a replacement early, run parallel payroll cycles, and secure extension terms.",
-                      "asset_ids": ["APP-09"]})
     if len(waves_result["waves"]) > 1:
-        risks.append({"id": "R-07", "risk": "Wave capacity or dependency changes delay cutover dates.",
+        risks.append({"id": _next_id(), "risk": "Wave capacity or dependency changes delay cutover dates.",
                       "cause": "Dependencies and specialist capacity concentrate work into sequential waves.",
                       "likelihood": "medium", "impact": "high", "owner": "Programme manager",
                       "mitigation": "Reserve specialist capacity and reforecast TSA needs after each wave.",
@@ -80,7 +122,7 @@ def build_risk_register(portfolio: Portfolio, waves_result: dict[str, Any]) -> l
             functions.setdefault(asset.function, []).append(asset.id)
     duplicates = sorted(asset_id for members in functions.values() if len(members) > 1 for asset_id in members)
     if duplicates:
-        risks.append({"id": "R-08", "risk": "CRM consolidation loses customer history or interrupts support.",
+        risks.append({"id": _next_id(), "risk": "CRM consolidation loses customer history or interrupts support.",
                       "cause": "Two systems provide a duplicate CRM function and contain separate records.",
                       "likelihood": "medium", "impact": "medium", "owner": "Commercial systems lead",
                       "mitigation": "Map and deduplicate records, confirm the destination, and get sign-off before retirement.",
@@ -105,10 +147,15 @@ def generate_documents(
     asset_by_id = {asset.id: asset for asset in portfolio.assets}
     tsa_rows = []
     for service in portfolio.tsa_services:
-        linked_assets = [asset for asset in portfolio.assets if asset.tsa_id == service.id]
+        linked_ids = {asset.id for asset in portfolio.assets if asset.tsa_id == service.id}
         linked_waves = [wave for wave in waves_result["waves"]
-                        if any(asset.id in wave["assets"] for asset in linked_assets)]
-        latest = max((date.fromisoformat(wave["planned_completion"]) for wave in linked_waves), default=None)
+                        if linked_ids.intersection(wave["assets"])]
+        completions = [
+            date.fromisoformat(wave["asset_completion_dates"][asset_id])
+            for wave in linked_waves
+            for asset_id in linked_ids.intersection(wave["assets"])
+        ]
+        latest = max(completions, default=None)
         tsa_rows.append({
             "tsa_id": service.id, "service": service.service,
             "planned_exit": latest.isoformat() if latest else service.start_date.isoformat(),
@@ -151,6 +198,10 @@ def generate_documents(
     )
 
     written = [output / "separation_plan.md"]
+    runbooks_dir = output / "runbooks"
+    if runbooks_dir.exists():
+        for old_runbook in runbooks_dir.glob("wave-*.md"):
+            old_runbook.unlink()
     for wave in waves_result["waves"]:
         wave_assets = [asset_by_id[item] for item in wave["assets"]]
         runbook_doc = {"asset_ids": wave["assets"], "wave_numbers": [wave["wave"]]}
@@ -173,7 +224,8 @@ def generate_documents(
         runbook_path.write_text(runbook, encoding="utf-8")
         written.append(runbook_path)
 
-    _write_csv(output / "risk_register.csv", risks,
+    csv_risks = [{**risk, "asset_ids": ";".join(risk["asset_ids"])} for risk in risks]
+    _write_csv(output / "risk_register.csv", csv_risks,
                ["id", "risk", "cause", "likelihood", "impact", "owner", "mitigation", "asset_ids"])
     risk_narrative = ""
     if use_ai:
