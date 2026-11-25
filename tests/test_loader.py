@@ -52,3 +52,9 @@ def test_bad_schema_fails_clearly(tmp_path):
     bad.write_text("planning: {}\nassets: []\nrelationships: []\n")
     with pytest.raises(PortfolioError):
         load_portfolio(bad)
+
+
+def test_gitignore_covers_cache_and_eval_dirs():
+    gitignore = (Path(__file__).resolve().parents[1] / ".gitignore").read_text(encoding="utf-8")
+    assert ".pytest_cache/" in gitignore
+    assert ".deepeval/" in gitignore

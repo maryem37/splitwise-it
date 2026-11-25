@@ -1,5 +1,6 @@
+# Core runtime dependencies (aligned with pyproject.toml).
+# For dev/ai/neo4j extras, run: pip install -e ".[dev,ai,neo4j]"
+jinja2>=3.1
+networkx>=3.2
 pydantic>=2.5
 pyyaml>=6.0
-networkx>=3.2
-jinja2>=3.1
-pytest>=8.0
