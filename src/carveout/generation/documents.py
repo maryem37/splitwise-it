@@ -37,11 +37,17 @@ def build_risk_register(portfolio: Portfolio, waves_result: dict[str, Any]) -> l
         next_idx += 1
         return rid
 
+    # Track (conflict_type_key, entity_id) pairs already covered by conflict-driven risks
+    # so the structural/near-miss rules don't generate duplicates.
+    covered: set[tuple[str, str]] = set()
+
     for conflict in waves_result.get("conflicts", []):
         ctype = conflict.get("type")
         if ctype == "licence_expires_before_cutover":
             aid = conflict["asset_id"]
             lic_id = conflict["licence_id"]
+            covered.add(("licence", lic_id))
+            covered.add(("licence_asset", aid))
             risks.append({
                 "id": _next_id(),
                 "risk": f"{aid} cutover blocked by {lic_id} licence expiry.",
@@ -55,6 +61,8 @@ def build_risk_register(portfolio: Portfolio, waves_result: dict[str, Any]) -> l
         elif ctype in ("tsa_ends_before_cutover", "tsa_extension_required"):
             aid = conflict["asset_id"]
             tsa_id = conflict["tsa_id"]
+            covered.add(("tsa_asset", aid))
+            covered.add(("tsa", tsa_id))
             hard = ctype == "tsa_ends_before_cutover"
             risks.append({
                 "id": _next_id(),
@@ -89,6 +97,106 @@ def build_risk_register(portfolio: Portfolio, waves_result: dict[str, Any]) -> l
                 "mitigation": "Decouple cycle or approve temporary wave capacity exception.",
                 "asset_ids": members,
             })
+
+    # ── (a) Near-miss: <45 days margin between asset completion and TSA end_date ──
+    tsa_by_id = {svc.id: svc for svc in portfolio.tsa_services}
+    # Build flat map: asset_id -> planned_completion (date) from waves
+    completion_by_asset: dict[str, date] = {}
+    for wave in waves_result.get("waves", []):
+        for asset_id, iso in wave.get("asset_completion_dates", {}).items():
+            completion_by_asset[asset_id] = date.fromisoformat(iso)
+
+    for asset in portfolio.assets:
+        if not asset.tsa_id:
+            continue
+        tsa = tsa_by_id.get(asset.tsa_id)
+        if tsa is None:
+            continue
+        completion = completion_by_asset.get(asset.id)
+        if completion is None:
+            continue
+        # Skip if already covered by a hard TSA conflict for this asset
+        if ("tsa_asset", asset.id) in covered:
+            continue
+        margin_days = (tsa.end_date - completion).days
+        if 0 < margin_days < 45:
+            risks.append({
+                "id": _next_id(),
+                "risk": (
+                    f"{asset.id} has only {margin_days} days between planned completion "
+                    f"({completion.isoformat()}) and {asset.tsa_id} end date ({tsa.end_date.isoformat()})."
+                ),
+                "cause": f"Near-miss: margin of {margin_days} days is below the 45-day buffer threshold.",
+                "likelihood": "medium",
+                "impact": "high",
+                "owner": "TSA / separation lead",
+                "mitigation": (
+                    f"Advance {asset.id} cutover by at least {45 - margin_days} days or "
+                    f"negotiate a contingency extension on {asset.tsa_id}."
+                ),
+                "asset_ids": [asset.id],
+            })
+
+    # ── (b) Non-extendable TSA with linked assets ──────────────────────────
+    for svc in portfolio.tsa_services:
+        if svc.extendable:
+            continue
+        linked = [a.id for a in portfolio.assets if a.tsa_id == svc.id]
+        if not linked:
+            continue
+        # Skip if already covered by a conflict for this TSA
+        if ("tsa", svc.id) in covered:
+            continue
+        risks.append({
+            "id": _next_id(),
+            "risk": f"{svc.id} is non-extendable and expires on {svc.end_date.isoformat()}.",
+            "cause": (
+                f"{svc.id} has no extension option; assets {', '.join(sorted(linked))} must exit "
+                f"before {svc.end_date.isoformat()} with no fallback."
+            ),
+            "likelihood": "high",
+            "impact": "critical",
+            "owner": "TSA / separation lead",
+            "mitigation": (
+                f"Prioritise separation of {svc.id}-linked assets; "
+                f"embed a hard-stop milestone in the programme plan."
+            ),
+            "asset_ids": sorted(linked),
+        })
+
+    # ── (c) Non-transferable licence on non-retired asset ──────────────────
+    for lic in portfolio.licences:
+        if lic.transferable:
+            continue
+        # Skip if a conflict already covers this licence
+        if ("licence", lic.id) in covered:
+            continue
+        non_retired = [
+            a.id for a in portfolio.assets
+            if a.licence_id == lic.id and a.id not in {
+                item["asset_id"] for item in [
+                    # infer retired from strategy decisions stored in waves_result
+                ]
+            }
+        ]
+        if not non_retired:
+            continue
+        risks.append({
+            "id": _next_id(),
+            "risk": f"Licence {lic.id} ({lic.vendor} {lic.product}) is non-transferable.",
+            "cause": (
+                f"Assets {', '.join(sorted(non_retired))} rely on {lic.id}, which cannot be "
+                f"transferred to Nordia; a new licence must be in place before cutover."
+            ),
+            "likelihood": "medium",
+            "impact": "high",
+            "owner": "Commercial / product owner",
+            "mitigation": (
+                f"Renegotiate or replace {lic.id} with a Nordia-owned licence "
+                f"before the asset cutover date. Notice period: {lic.notice_period_days} days."
+            ),
+            "asset_ids": sorted(non_retired),
+        })
 
     if any(asset.id == "INF-03" and asset.owner.value == "shared" for asset in portfolio.assets):
         risks.append({"id": _next_id(), "risk": "Shared identity cutover blocks users or applications.",

@@ -335,3 +335,177 @@ def test_runbook_shows_exit_strategy_for_retained_assets(tmp_path):
     runbook = (tmp_path / "runbooks" / f"wave-{tsa_wave_num:02d}.md").read_text(encoding="utf-8")
     assert "post-TSA exit strategy" in runbook
     assert "rebuild" in runbook
+
+
+# ── Commit 2: enhanced risk register ──────────────────────────────────────
+
+def test_risk_register_near_miss_tsa_margin(tmp_path):
+    """build_risk_register must generate a near-miss risk when margin < 45 days."""
+    from datetime import date, timedelta
+    from carveout.models import Portfolio, Planning, Asset, TSAService, AssetType, Owner
+
+    today = date(2027, 3, 1)
+    tsa_end = date(2027, 6, 1)
+    # planned_completion = tsa_end - 20 days → margin = 20 days < 45 → triggers risk
+    completion = tsa_end - timedelta(days=20)
+
+    portfolio = Portfolio(
+        planning=Planning(
+            company="Test", carve_out_description="test",
+            day1=date(2027, 1, 4), cutover_start=today,
+            target_tsa_exit=date(2027, 12, 31),
+        ),
+        assets=[Asset(
+            id="A-01", name="Test App", type=AssetType.APPLICATION,
+            owner=Owner.SHARED, criticality=3, users=0,
+            tsa_id="TSA-X", effort_weeks=2, exit_strategy="migrate",
+        )],
+        relationships=[],
+        tsa_services=[TSAService(
+            id="TSA-X", service="test service", start_date=date(2027, 1, 4),
+            end_date=tsa_end, monthly_cost=10000, extendable=False,
+        )],
+    )
+    # Fake waves_result with no conflicts and correct asset_completion_dates
+    waves_result = {
+        "waves": [{
+            "wave": 1,
+            "assets": ["A-01"],
+            "planned_start": today.isoformat(),
+            "planned_completion": completion.isoformat(),
+            "asset_completion_dates": {"A-01": completion.isoformat()},
+            "depends_on_waves": [],
+            "conflicts": [],
+        }],
+        "conflicts": [],
+    }
+    risks = build_risk_register(portfolio, waves_result)
+    near_miss = [r for r in risks if "20 days" in r["risk"] or "margin" in r["cause"].lower()]
+    assert near_miss, f"Expected a near-miss risk, got: {[r['risk'] for r in risks]}"
+    assert any("A-01" in r["asset_ids"] for r in near_miss)
+    # Margin must be cited
+    assert any("20" in r["risk"] for r in near_miss)
+
+
+def test_risk_register_non_extendable_tsa(tmp_path):
+    """build_risk_register must flag non-extendable TSA with linked assets."""
+    from datetime import date
+    from carveout.models import Portfolio, Planning, Asset, TSAService, AssetType, Owner
+
+    portfolio = Portfolio(
+        planning=Planning(
+            company="Test", carve_out_description="test",
+            day1=date(2027, 1, 4), cutover_start=date(2027, 3, 1),
+            target_tsa_exit=date(2027, 12, 31),
+        ),
+        assets=[Asset(
+            id="B-01", name="B App", type=AssetType.APPLICATION,
+            owner=Owner.SHARED, criticality=3, users=0,
+            tsa_id="TSA-NE", effort_weeks=2, exit_strategy="migrate",
+        )],
+        relationships=[],
+        tsa_services=[TSAService(
+            id="TSA-NE", service="non-ext service", start_date=date(2027, 1, 4),
+            end_date=date(2027, 12, 31), monthly_cost=5000, extendable=False,
+        )],
+    )
+    completion = date(2027, 6, 1)
+    waves_result = {
+        "waves": [{
+            "wave": 1, "assets": ["B-01"],
+            "planned_start": date(2027, 3, 1).isoformat(),
+            "planned_completion": completion.isoformat(),
+            "asset_completion_dates": {"B-01": completion.isoformat()},
+            "depends_on_waves": [], "conflicts": [],
+        }],
+        "conflicts": [],
+    }
+    risks = build_risk_register(portfolio, waves_result)
+    non_ext_risks = [r for r in risks if "non-extendable" in r["risk"].lower() or "TSA-NE" in r["risk"]]
+    assert non_ext_risks, f"Expected non-extendable TSA risk, got: {[r['risk'] for r in risks]}"
+    assert any("B-01" in r["asset_ids"] for r in non_ext_risks)
+
+
+def test_risk_register_non_transferable_licence(tmp_path):
+    """build_risk_register must flag non-transferable licences on non-retired assets."""
+    from datetime import date
+    from carveout.models import Portfolio, Planning, Asset, Licence, AssetType, Owner
+
+    portfolio = Portfolio(
+        planning=Planning(
+            company="Test", carve_out_description="test",
+            day1=date(2027, 1, 4), cutover_start=date(2027, 3, 1),
+            target_tsa_exit=date(2027, 12, 31),
+        ),
+        assets=[Asset(
+            id="C-01", name="C App", type=AssetType.APPLICATION,
+            owner=Owner.CARVED_OUT, criticality=3, users=0,
+            licence_id="LIC-NT", effort_weeks=2,
+        )],
+        relationships=[],
+        licences=[Licence(
+            id="LIC-NT", vendor="TestVendor", product="Test Product",
+            end_date=date(2028, 12, 31), transferable=False,
+            annual_cost=50000, notice_period_days=90,
+        )],
+    )
+    waves_result = {
+        "waves": [{
+            "wave": 1, "assets": ["C-01"],
+            "planned_start": date(2027, 3, 1).isoformat(),
+            "planned_completion": date(2027, 4, 1).isoformat(),
+            "asset_completion_dates": {"C-01": date(2027, 4, 1).isoformat()},
+            "depends_on_waves": [], "conflicts": [],
+        }],
+        "conflicts": [],
+    }
+    risks = build_risk_register(portfolio, waves_result)
+    lic_risks = [r for r in risks if "LIC-NT" in r["risk"]]
+    assert lic_risks, f"Expected non-transferable licence risk, got: {[r['risk'] for r in risks]}"
+    assert any("C-01" in r["asset_ids"] for r in lic_risks)
+    assert any("90" in r["mitigation"] for r in lic_risks)
+
+
+def test_risk_register_no_duplicate_with_conflict(tmp_path):
+    """When a conflict already covers a TSA, non-extendable TSA risk must NOT be duplicated."""
+    from datetime import date
+    from carveout.models import Portfolio, Planning, Asset, TSAService, AssetType, Owner
+
+    portfolio = Portfolio(
+        planning=Planning(
+            company="Test", carve_out_description="test",
+            day1=date(2027, 1, 4), cutover_start=date(2027, 3, 1),
+            target_tsa_exit=date(2027, 12, 31),
+        ),
+        assets=[Asset(
+            id="D-01", name="D App", type=AssetType.APPLICATION,
+            owner=Owner.SHARED, criticality=3, users=0,
+            tsa_id="TSA-DUP", effort_weeks=2, exit_strategy="migrate",
+        )],
+        relationships=[],
+        tsa_services=[TSAService(
+            id="TSA-DUP", service="dup service", start_date=date(2027, 1, 4),
+            end_date=date(2027, 6, 30), monthly_cost=5000, extendable=False,
+        )],
+    )
+    # Conflict already covers TSA-DUP
+    waves_result = {
+        "waves": [{
+            "wave": 1, "assets": ["D-01"],
+            "planned_start": date(2027, 3, 1).isoformat(),
+            "planned_completion": date(2027, 8, 1).isoformat(),
+            "asset_completion_dates": {"D-01": date(2027, 8, 1).isoformat()},
+            "depends_on_waves": [], "conflicts": [],
+        }],
+        "conflicts": [{
+            "type": "tsa_ends_before_cutover",
+            "asset_id": "D-01",
+            "tsa_id": "TSA-DUP",
+            "tsa_end": "2027-06-30",
+            "planned_completion": "2027-08-01",
+        }],
+    }
+    risks = build_risk_register(portfolio, waves_result)
+    tsa_dup_risks = [r for r in risks if "TSA-DUP" in r["risk"]]
+    # Only the conflict-driven risk should appear, not the structural non-extendable one too
+    assert len(tsa_dup_risks) == 1, f"Expected exactly 1 TSA-DUP risk, got {len(tsa_dup_risks)}"
