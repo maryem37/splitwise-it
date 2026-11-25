@@ -14,6 +14,7 @@ from .evaluate import evaluate_results, evaluate_robustness, format_evaluation_e
 from .loader import load_portfolio, validate_portfolio, write_report
 from .metrics import calculate_metrics
 from .models import Portfolio
+from .sensitivity import run_sensitivity
 from .sequencing import compute_waves
 from .strategy import assess_strategies
 from .cypher_queries import QUERIES
@@ -23,7 +24,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 _NEO4J_COMMANDS = ("neo4j-load", "neo4j-query", "neo4j-export")
 _PLAN_COMMANDS  = ("validate", "schema", "graph", "strategy", "waves",
-                   "generate", "evaluate", "run-all")
+                   "generate", "evaluate", "sensitivity", "run-all")
 
 
 def _write_json(value: Any, path: Path) -> None:
@@ -87,7 +88,7 @@ def run(args: argparse.Namespace) -> int:
         sequencing = None
         metrics = None
 
-        if args.command in ("strategy", "waves", "generate", "evaluate", "run-all"):
+        if args.command in ("strategy", "waves", "generate", "evaluate", "sensitivity", "run-all"):
             decisions = assess_strategies(portfolio, rules_path)
         if args.command in ("strategy", "run-all"):
             _write_json(decisions, output_dir / "strategy_assessment.json")
@@ -96,6 +97,8 @@ def run(args: argparse.Namespace) -> int:
             _write_json(sequencing, output_dir / "waves.json")
             metrics = calculate_metrics(portfolio, sequencing)
             _write_json(metrics, output_dir / "metrics.json")
+        if args.command == "sensitivity":
+            run_sensitivity(portfolio, constraints_path, decisions, output_dir)
         if args.command in ("generate", "run-all"):
             generate_documents(portfolio, decisions, sequencing, metrics, output_dir, use_ai=args.ai)
             risks_for_ui = build_risk_register(portfolio, sequencing)
