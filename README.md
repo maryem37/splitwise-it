@@ -227,6 +227,11 @@ py -m pip install -e ".[neo4j]"
 py -m pip install -e ".[mcp]"
 ```
 
+**Optional — Agentic LangGraph orchestration & OR-Tools CP-SAT optimization**:
+```powershell
+py -m pip install -e ".[agents,optimization]"
+```
+
 ---
 
 ## 5 · Pipeline commands
@@ -255,6 +260,14 @@ carveout neo4j-export           # Export standalone output/graph.cypher (no DB n
 carveout neo4j-load             # Load portfolio + waves into Neo4j
 carveout neo4j-query --query transitive_impact --asset INF-01
 carveout cypher-list            # Print all 12 named Cypher queries
+
+# ── Agentic Investigation & CP-SAT Optimization ──────────────────
+carveout agent "What happens if we delay APP-06 by three months?"
+carveout optimize --scenario baseline
+carveout optimize --scenario app_06_delay --delay-weeks 12
+carveout optimize --scenario minimize_cost --objective minimize_cost
+carveout optimize --scenario minimize_duration --objective minimize_duration
+carveout optimize --scenario balanced --objective balanced
 ```
 
 **All outputs are written to `output/`** (overwritten on each run).
@@ -540,6 +553,24 @@ Test modules:
 | `tests/test_sensitivity.py` | Scenario, Monte Carlo, mitigation and critical-path results |
 | `tests/test_generation.py` | Document rendering, risk register, guardrails |
 | `tests/test_mcp_server.py` | MCP tool behavior and local stdio protocol |
+| `tests/test_tools.py` | Deterministic tool wrappers (graph, planning, risk, Neo4j) |
+| `tests/test_agents.py` | LangGraph Supervisor, Dependency, Risk, Strategy & Optimization agents |
+| `tests/test_optimization.py` | OR-Tools CP-SAT solver, SCC coupling, scenarios & immutability |
+
+---
+
+## 13.1 · Agentic & CP-SAT Optimization Architecture (Phase 1–2)
+
+Carve-out Copilot includes an optional multi-agent orchestration layer (`[agents]`) and constraint-programming optimizer (`[optimization]`):
+
+- **Supervisor Agent (`src/carveout/agents/supervisor.py`):** Classifies intent and conditionally routes requests across specialized agents, then synthesizes grounded findings. Works offline without `GROQ_API_KEY` and enhances prose when `GROQ_API_KEY` is configured.
+- **Dependency Agent (`src/carveout/agents/dependency_agent.py`):** Investigates direct/transitive prerequisites, dependants, circular dependencies, and blocking hubs via NetworkX.
+- **Strategy Agent (`src/carveout/agents/strategy_agent.py`):** Retrieves deterministic rule-based decisions (`strategy.assess_strategies`) and compares available exit strategies (`clone`, `migrate`, `rebuild`, `retire`, `retain_under_tsa`).
+- **Risk Agent (`src/carveout/agents/risk_agent.py`):** Aggregates hard schedule conflicts, TSA/licence expirations, and deterministic risk register items.
+- **Optimization Agent (`src/carveout/agents/optimization_agent.py`) & CP-SAT Engine (`src/carveout/optimization/`):** Solves discrete wave assignment (`wave[u] in [1..max_waves]`) with Google OR-Tools CP-SAT subject to:
+  - **Hard constraints:** Dependency ordering (including reversed `retain_under_tsa` exit order), SCC co-location (e.g. `APP-06` ↔ `APP-07` coupled in the same wave), wave capacity (`max_assets_per_wave`), and scenario delay floors.
+  - **Objectives:** `minimize_cost` (prioritizes earlier exit of TSA-linked assets), `minimize_duration` (minimizes total waves), and `balanced`.
+  - **Known limitations:** Freeze periods from `constraints.yaml` are enforced by `sequencing.py` but not yet modeled inside the CP-SAT wave calendar; Windows Smart App Control may block `pandas` C-extensions, so `solver.py` includes a lightweight fallback shim when importing `cp_model`.
 
 ---
 

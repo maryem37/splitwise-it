@@ -24,7 +24,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 _NEO4J_COMMANDS = ("neo4j-load", "neo4j-query", "neo4j-export")
 _PLAN_COMMANDS  = ("validate", "schema", "graph", "strategy", "waves",
-                   "generate", "evaluate", "sensitivity", "run-all")
+                   "generate", "evaluate", "sensitivity", "run-all", "agent", "optimize")
 
 
 def _write_json(value: Any, path: Path) -> None:
@@ -64,6 +64,62 @@ def run(args: argparse.Namespace) -> int:
         if not report["valid"]:
             print(json.dumps(report, indent=2, ensure_ascii=False))
             return 2
+
+        if args.command == "agent":
+            from .workflows.graph import run_agent_workflow
+            query = getattr(args, "query_text", None) or "Investigate dependencies and TSA risks for the portfolio."
+            result = run_agent_workflow(
+                user_request=query,
+                portfolio_path=portfolio_path,
+                rules_path=rules_path,
+                constraints_path=constraints_path,
+            )
+            print("\n" + "=" * 70)
+            print("CARVEOUT COPILOT AGENTIC INVESTIGATION")
+            print("=" * 70 + "\n")
+            print(result.get("final_response", "No response generated."))
+            print("\n" + "-" * 70)
+            print(f"Approval status: {result.get('approval_status')}")
+            print(f"Agent handoffs : {len(result.get('agent_messages', []))}")
+            print("-" * 70)
+            return 0
+
+        if args.command == "optimize":
+            try:
+                from .optimization.scenarios import run_scenario
+            except ImportError as exc:
+                print(f"Error: OR-Tools optimization requires the optional extra. Run: pip install -e \".[optimization]\" ({exc})")
+                return 2
+
+            scenario = getattr(args, "scenario", "baseline")
+            delay_w = int(getattr(args, "delay_weeks", 12))
+            objective = getattr(args, "objective", "minimize_cost")
+
+            res, comp = run_scenario(
+                portfolio_path=str(portfolio_path),
+                rules_path=str(rules_path),
+                scenario_type=scenario,
+                delay_weeks=delay_w,
+                objective=objective,
+                constraints_path=str(constraints_path),
+            )
+
+            print("\n" + "=" * 70)
+            print(f"CARVEOUT COPILOT OPTIMIZATION: {comp.scenario_name.upper()}")
+            print("=" * 70 + "\n")
+            print(f"Solver Status     : {res.status} (solved in {res.solve_duration_seconds:.2f}s)")
+            print(f"Feasible          : {comp.is_feasible}")
+            print(f"Baseline TSA Cost : ${comp.baseline_tsa_cost:,.2f}")
+            print(f"Scenario TSA Cost : ${comp.scenario_tsa_cost:,.2f} (Delta: ${comp.additional_tsa_cost:+,.2f})")
+            print(f"Latest Completion : {comp.scenario_completion} (Baseline: {comp.baseline_completion})")
+            print(f"Total Waves       : {comp.scenario_waves} (Baseline: {comp.baseline_waves})")
+            print(f"Schedule Conflicts: {comp.scenario_conflicts}")
+            if comp.affected_assets:
+                print(f"Affected Unit     : {', '.join(comp.affected_assets)}")
+            print("\nTradeoff Summary  :")
+            print(comp.tradeoff_summary)
+            print("-" * 70)
+            return 0
 
         # ── Planning pipeline ──────────────────────────────────────────────
         if args.command == "validate":
@@ -206,6 +262,18 @@ def main() -> int:
         if command == "evaluate":
             sub.add_argument("--explain", action="store_true",
                              help="Print per-asset strategy and per-risk matching explanations")
+        if command == "agent":
+            sub.add_argument("query_text", nargs="?", default="",
+                             help="Natural language request or question for the Agentic Copilot")
+        if command == "optimize":
+            sub.add_argument("--scenario", default="baseline",
+                             choices=["baseline", "app_06_delay", "minimize_cost", "minimize_duration", "balanced"],
+                             help="Scenario identifier to optimize")
+            sub.add_argument("--delay-weeks", type=int, default=12,
+                             help="Delay in weeks for delay scenarios (default: 12)")
+            sub.add_argument("--objective", default="minimize_cost",
+                             choices=["minimize_cost", "minimize_duration", "balanced"],
+                             help="Primary optimization objective (default: minimize_cost)")
 
     # ── neo4j-load ─────────────────────────────────────────────────────────
     sub_load = subparsers.add_parser(

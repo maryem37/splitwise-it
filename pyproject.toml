@@ -19,6 +19,13 @@ dev = ["pytest>=8.0"]
 ai = ["groq>=0.11", "python-dotenv>=1.0"]
 neo4j = ["neo4j>=5.0"]
 mcp = ["mcp>=1.9,<2"]
+agents = [
+  "langgraph>=0.2.0",
+  "langchain-core>=0.3.0",
+  "langchain-groq>=0.2.0",
+  "python-dotenv>=1.0",
+]
+optimization = ["ortools>=9.8"]
 
 [project.scripts]
 carveout = "carveout.cli:main"
