@@ -281,6 +281,59 @@ def run_sensitivity(
         mc_variants.append(mc_item)
     mc_stats = next(item for item in mc_variants if item["variant"] == "per_asset" and item["law"].startswith("skewed"))
 
+    # 7. Mitigation scenarios (a, b, c) with Monte Carlo probability & cost per gained point
+    base_row = rows[0]
+    base_cost = base_row["estimated_tsa_cost_total"]
+    base_prob = mc_stats["target_exit_probability_percent"]
+
+    def _apply_tsa_extensions(target: Portfolio) -> float:
+        added = 0.0
+        for svc in target.tsa_services:
+            if svc.id == "TSA-01":
+                svc.end_date = _add_months(svc.end_date, 6)
+                added += 6 * svc.monthly_cost
+            elif svc.id == "TSA-04":
+                svc.end_date = _add_months(svc.end_date, 3)
+                added += 3 * svc.monthly_cost
+        return added
+
+    def _apply_erp_early_start(target: Portfolio) -> None:
+        for asset in target.assets:
+            if asset.id == "APP-01":
+                asset.build_effort_weeks = max(1, asset.build_effort_weeks // 2)
+                asset.effort_weeks = max(1, asset.effort_weeks - 1)
+                break
+
+    mitigations: list[dict[str, Any]] = []
+    mitigation_specs: list[tuple[str, Any]] = [
+        ("mitigation_tsa01_6m_tsa04_3m", lambda p: _apply_tsa_extensions(p)),
+        ("mitigation_erp_early_start", lambda p: (_apply_erp_early_start(p), 0.0)[1]),
+        ("mitigation_combined", lambda p: (_apply_erp_early_start(p), _apply_tsa_extensions(p))[1]),
+    ]
+    for name, mutator in mitigation_specs:
+        p_mit = _clone_portfolio(portfolio)
+        extra_mit_cost = mutator(p_mit)
+        det_row = _evaluate_scenario(name, p_mit, constraints_path, strategies, extra_tsa_cost=extra_mit_cost)
+        _, mit_mc = _run_monte_carlo(
+            p_mit, constraints_path, strategies,
+            trials=trials, seed=seed, variant="per_asset",
+            dist_name="skewed (0.8, 1.0, 1.5)", low=0.8, mode=1.0, high=1.5,
+        )
+        prob = mit_mc["target_exit_probability_percent"]
+        prob_gain = round(prob - base_prob, 2)
+        extra_cost_vs_base = round(det_row["estimated_tsa_cost_total"] - base_cost, 2)
+        cost_per_pt = round(extra_cost_vs_base / prob_gain, 2) if prob_gain > 0 else None
+        mitigations.append({
+            "scenario": name,
+            "latest_planned_completion": det_row["latest_planned_completion"],
+            "estimated_tsa_cost_total": det_row["estimated_tsa_cost_total"],
+            "conflict_count": det_row["conflict_count"],
+            "target_exit_probability_percent": prob,
+            "prob_gain_points": prob_gain,
+            "extra_cost_vs_base": extra_cost_vs_base,
+            "cost_per_probability_point": cost_per_pt,
+        })
+
     out = Path(output_dir)
     out.mkdir(parents=True, exist_ok=True)
     columns = [
@@ -327,6 +380,20 @@ def run_sensitivity(
     ])
     for count_str, freq in mc_stats["conflict_count_distribution"].items():
         md_lines.append(f"- `{count_str}` conflicts: {freq} / {mc_stats['trials']} trials")
+    md_lines.extend([
+        "",
+        "## Mitigation scenarios",
+        "",
+        "| Scenario | Latest completion | TSA cost | Conflicts | Prob. target_tsa_exit | Gain (pts) | Extra cost / pt |",
+        "|---|---|---:|---:|---:|---:|---:|",
+    ])
+    for mit in mitigations:
+        cpp = f"{mit['cost_per_probability_point']:,.2f}" if mit["cost_per_probability_point"] is not None else "N/A"
+        md_lines.append(
+            f"| {mit['scenario']} | {mit['latest_planned_completion']} | "
+            f"{mit['estimated_tsa_cost_total']:,.2f} | {mit['conflict_count']} | "
+            f"{mit['target_exit_probability_percent']}% | {mit['prob_gain_points']} | {cpp} |"
+        )
     (out / "sensitivity.md").write_text("\n".join(md_lines) + "\n", encoding="utf-8")
 
     critical = compute_critical_path(portfolio, constraints_path, strategies, output_dir=out)
@@ -335,5 +402,6 @@ def run_sensitivity(
         "scenarios": rows,
         "monte_carlo": mc_stats,
         "monte_carlo_variants": mc_variants,
+        "mitigations": mitigations,
         "critical_path": critical,
     }

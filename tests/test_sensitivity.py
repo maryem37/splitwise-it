@@ -78,3 +78,17 @@ def test_sensitivity_is_deterministic_and_base_matches_run_all(tmp_path):
     }
     md_text = (out1 / "sensitivity.md").read_text(encoding="utf-8")
     assert "| Variante | Loi | Moyenne | P50 | P80 | P90 |" in md_text
+    assert "## Mitigation scenarios" in md_text
+
+    mitigations = res1["mitigations"]
+    assert [m["scenario"] for m in mitigations] == [
+        "mitigation_tsa01_6m_tsa04_3m",
+        "mitigation_erp_early_start",
+        "mitigation_combined",
+    ]
+    tsa_ext = mitigations[0]
+    # TSA-01 (+6 * 85,000 = 510,000) + TSA-04 (+3 * 60,000 = 180,000) = +690,000
+    assert tsa_ext["extra_cost_vs_base"] == 690000.0
+    assert tsa_ext["conflict_count"] == 1  # only LIC-04 remains, TSA-01 overrun resolved
+    erp_early = mitigations[1]
+    assert erp_early["target_exit_probability_percent"] >= res1["monte_carlo"]["target_exit_probability_percent"]
