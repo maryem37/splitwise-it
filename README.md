@@ -35,24 +35,28 @@ https://github.com/user-attachments/assets/30ef1cfa-5b49-401e-a7e0-ce38d9f54072
 
 ---
 
-## Tech Stack & Tools Used
+## Tech Stack & Tools Used (Why Each Tool Matters)
 
-| Category | Tools & Libraries | Role in Project |
+| Category | Tool / Library | Why It Is Used in Carve-out Copilot |
 |---|---|---|
-| **Language & Runtime** | Python 3.11+, Setuptools | Core application runtime and packaging (`pyproject.toml`) |
-| **Graph & Planning** | `NetworkX` (>=3.2), `PyYAML` (>=6.0), `Pydantic` (>=2.5) | Dependency graph, Tarjan SCC cycle detection, topological wave sequencing, YAML schema validation |
-| **Constraint Optimization** | `Google OR-Tools` CP-SAT (>=9.8) | Integer programming solver minimizing TSA cost & duration under dependency/capacity constraints |
-| **Multi-Agent AI** | `LangGraph` (>=0.2.0), `LangChain Core` (>=0.3.0), `langgraph-checkpoint-sqlite` (>=3.0.0) | 7-agent orchestration, bounded correction loops, and `interrupt()` Human-in-the-Loop workflows |
-| **LLM Integration (Optional)** | `Groq` API (`groq>=0.11`, `langchain-groq>=0.2.0`), `python-dotenv` | Optional narrative synthesis for runbooks and executive summaries |
-| **Web Backend & API** | `FastAPI` (>=0.110), `Uvicorn` (>=0.27), `HTTPX` (>=0.27) | REST API, OpenAPI/Swagger docs, lifespan health/readiness probes, and unified 6-tab Web UI |
-| **Persistence & Security** | `SQLite` (WAL mode), `hmac.compare_digest` | Cross-process workflow checkpointing, constant-time approval token verification, path-traversal protection |
-| **Reporting & Visualization** | `Jinja2` (>=3.1), HTML5/CSS/JS, SVG Charts, `vis-network` | Offline interactive dashboard, Gantt calendar, force-directed graph, Markdown/JSON reports & cutover runbooks |
-| **Integrations (Optional)** | `MCP` (`mcp>=1.9,<2`), `Neo4j` driver (`neo4j>=5.0`) | Read-only Model Context Protocol server (`stdio`) and Neo4j/Cypher graph analytics (12 named queries) |
-| **DevOps & Testing** | `Docker`, `Docker Compose`, `pytest` (>=8.0) | Multi-stage non-root containerization with persistent volumes and 102 automated tests |
+| **Language & Packaging** | **Python 3.11+**, **Setuptools** | Core runtime and modular packaging (`pyproject.toml` extras: `agents`, `optimization`, `api`, `ai`, `mcp`, `neo4j`, `dev`). |
+| **Data Modeling & Config** | **Pydantic v2** (`>=2.5`), **PyYAML** (`>=6.0`), **python-dotenv** (`>=1.0`) | Enforces strict schema validation on portfolio inputs (`Portfolio`, `Asset`, `Relationship`, `Licence`, `TSAService`), exports JSON Schema, parses YAML rule/constraint files, and loads `.env` configuration. |
+| **Graph & Sequencing** | **NetworkX** (`>=3.2`) | Builds the directed dependency graph (`DiGraph`), detects circular dependencies via Strongly Connected Components (`APP-06 ↔ APP-07`), computes transitive impact, and sequences topological migration waves. |
+| **Constraint Optimization** | **Google OR-Tools CP-SAT** (`>=9.8`) | Solves discrete integer programming to find mathematically optimal wave assignments (`minimize_cost`, `minimize_duration`, `balanced`) respecting dependencies, SCC co-location, and wave capacity (`num_search_workers=1` for reproducibility). |
+| **Multi-Agent Orchestration** | **LangGraph** (`>=0.2.0`), **LangChain Core** (`>=0.3.0`) | Orchestrates 7 specialized agents (`Supervisor`, `Dependency`, `Strategy`, `Risk`, `Optimization`, `Evaluation`, `Critic`), manages conditional routing, runs bounded self-correction loops, and supports `interrupt()` for Human-in-the-Loop approval. |
+| **Persistence & State** | **SQLite (WAL Mode)**, **langgraph-checkpoint-sqlite** (`>=3.0.0`) | Stores workflow checkpoints on disk (`.carveout/checkpoints.sqlite`) so paused approvals can be inspected and resumed across separate CLI processes or API server restarts. |
+| **LLM Narrative (Optional)** | **Groq API** (`groq>=0.11`, `langchain-groq>=0.2.0`) | Generates human-readable executive summaries and runbook prose when `GROQ_API_KEY` is provided, while never overriding deterministic planning or financial calculations. |
+| **Backend API & Server** | **FastAPI** (`>=0.110`), **Uvicorn** (`>=0.27`), **HTTPX** (`>=0.27`) | Exposes REST endpoints, auto-generated OpenAPI/Swagger docs (`/docs`), liveness/readiness probes (`/api/health`, `/api/ready`), telemetry (`/api/metrics`), and powers API/E2E tests. |
+| **Security & Observability** | **`hmac.compare_digest`**, **Python `logging`** | Protects the human-approval `/resume` endpoint with constant-time token verification, blocks path traversal via portfolio allowlisting, and emits structured JSON logs with `thread_id` tracing. |
+| **Visualization & Reporting** | **Jinja2** (`>=3.1`), **HTML5/CSS3/JS**, **SVG Charts**, **`vis-network`** | Renders Markdown cutover runbooks, the 6-tab unified Web UI, inline SVG cost-comparison charts, the offline dashboard (`dashboard.html`), and interactive force-directed dependency graphs (`graph.html`). |
+| **Ecosystem Integrations** | **MCP** (`mcp>=1.9,<2`), **Neo4j Driver** (`neo4j>=5.0`) | Provides a read-only Model Context Protocol server (`stdio`) for IDE assistants and exports `:Asset`/`:TSAService`/`:Licence` graphs with 12 named Cypher analytics queries. |
+| **DevOps & Testing** | **Docker**, **Docker Compose**, **pytest** (`>=8.0`) | Packages the platform into a reproducible non-root container (`carveout`) with persistent SQLite volumes, and verifies all 21 test suites (**102 passing tests**). |
 
 ---
 
 ## Table of Contents
+
+0. [Tech Stack & Tools Used](#tech-stack--tools-used-why-each-tool-matters)
 
 1. [Input → Engine → Output](#1--input--engine--output)
 2. [Unified Platform Tour & Screenshots](#2--unified-platform-tour--screenshots)
