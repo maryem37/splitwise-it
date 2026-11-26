@@ -12,7 +12,7 @@
 
 ---
 
-## Executive Summary (For Recruiters & Hiring Managers)
+## Executive Summary 
 
 ### The Business Problem
 When a company sells or spins off a business unit (an **IT Carve-out**, such as *Nordia Retail* separating from *Atlas Group*), IT teams must migrate dozens of interdependent applications, databases, and servers off parent-company infrastructure before **Transitional Service Agreements (TSAs)** and software licences expire. Moving one system out of order breaks downstream applications; moving too slowly costs hundreds of thousands of dollars in TSA fees.
