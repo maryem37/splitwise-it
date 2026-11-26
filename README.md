@@ -26,6 +26,13 @@ Carve-out Copilot automates separation planning and turns complex dependency gra
 - **Strict Separation of Fact & AI:** Deterministic algorithms and CP-SAT remain the single source of truth. LLMs only synthesize narratives and never override hard constraints or financial math.
 - **Production-Ready Engineering:** Unified FastAPI Web Platform, REST API with OpenAPI docs, constant-time approval token auth (`hmac.compare_digest`), non-root Docker setup, structured JSON logging, and **102 automated tests (0 failures)**.
 
+
+
+
+
+https://github.com/user-attachments/assets/30ef1cfa-5b49-401e-a7e0-ce38d9f54072
+
+
 ---
 
 ## Tech Stack & Tools Used
